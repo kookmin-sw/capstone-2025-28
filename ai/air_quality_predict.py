@@ -15,6 +15,8 @@ from sensors.mq7 import MQ7Sensor
 from sensors.mq4 import MQ4Sensor
 from sensors.ens import ENSSensor
 from sensors.gp2y import GP2YSensor
+from actuators.fan import FanController
+from actuators.ultrasonic import UltrasonocController
 
 # 센서 초기화
 mq135 = MQ135Sensor()
@@ -22,13 +24,17 @@ mq7 = MQ7Sensor()
 mq4 = MQ4Sensor()
 ens = ENSSensor()
 gp2y = GP2YSensor()
+fan1 = FanController(pin=19)
+fan2 = FanController(pin=13)
+ultrasonic1 = UltrasonocController(pin=6)
+ultrasonic2 = UltrasonocController(pin=5)
 
 # 데이터 저장용 파일
 DATA_FILE = "air_quality_data.csv"
 MODEL_FILE = "air_quality_model.pkl"
 
 # 데이터 수집 및 저장 함수
-def collect_data(duration=60, interval=2):
+def collect_data(duration=60, interval=5):
     data_list = []
     start_time = time.time()
     
@@ -40,6 +46,8 @@ def collect_data(duration=60, interval=2):
         mq4_data = mq4.get_data() or {}
         
         record = {
+            "temperature": ens_data.get("temp"),
+            "humidity": ens_data.get("humidity"),
             "tvoc": ens_data.get("tvoc"),
             "eco2": ens_data.get("eco2"),
             "pm2.5": gp2y_data.get("pm25_filtered"),
@@ -63,7 +71,7 @@ def train_model():
     df = df.dropna()
     
     X = df.drop(columns=[])
-    y = df[["tvoc", "eco2", "pm2.5", "mq4", "mq7", "mq135", "air_quality"]]
+    y = df[["temperature", "humidity", "tvoc", "eco2", "pm2.5", "mq4", "mq7", "mq135", "air_quality"]]
     
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
     
@@ -94,6 +102,8 @@ def predict_air_quality():
     mq4_data = mq4.get_data() or {}
    
     input_data = pd.DataFrame([[
+        ens_data.get("temp", 0),
+        ens_data.get("humidity", 0),
         ens_data.get("tvoc", 0),
         ens_data.get("eco2", 0),
         gp2y_data.get("pm2.5", 0),
@@ -101,12 +111,27 @@ def predict_air_quality():
         mq7_data.get("mq7_raw", 0),
         mq135_data.get("mq135_raw", 0),
         ens_data.get("air_quality", 0),
-    ]], columns=["tvoc", "eco2", "pm2.5", "mq4", "mq7", "mq135", "air_quality"])
+    ]], columns=["temperature", "humidity", "tvoc", "eco2", "pm2.5", "mq4", "mq7", "mq135", "air_quality"])
     
     input_data = scaler.transform(input_data)
     prediction = model.predict(input_data)
     
-    print(f"✅ 예측된 TVOC: {prediction[0][0]:.2f}, eCO2: {prediction[0][1]:.2f}, PM2.5: {prediction[0][2]:.2f}, mq4: {prediction[0][3]:.2f}, mq7: {prediction[0][4]:.2f}, mq135: {prediction[0][5]:.2f}, air_quality: {prediction[0][6]:.2f}")
+    print(f"✅ 예측된 Temperature: {prediction[0][0]:.2f}, Humidity: {prediction[0][1]:.2f}, TVOC: {prediction[0][2]:.2f}, eCO2: {prediction[0][3]:.2f}, PM2.5: {prediction[0][4]:.2f}, mq4: {prediction[0][5]:.2f}, mq7: {prediction[0][6]:.2f}, mq135: {prediction[0][7]:.2f}, air_quality: {prediction[0][8]:.2f}")
+    set_fan_speed_by_air_quality((prediction[0][8] - 1) / 3 * 4)
+
+# 공기질에 따른 팬 및 펌프 제어 함수
+def set_fan_pump_by_air_quality(predicted_air_quality):
+    best_speed = max(0, min(4, int(round(predicted_air_quality))))
+    if predicted_air_quality > 2.5:
+        ultrasonic1.turn_on()
+        ultrasonic2.turn_on()
+    fan1.set_speed(best_speed)
+    fan2.set_speed(best_speed)
+    time.sleep(5)
+    fan1.set_speed(0)
+    fan2.set_speed(0)
+    ultrasonic1.turn_off()
+    ultrasonic2.turn_off()
 
 # 실행
 if __name__ == "__main__":
