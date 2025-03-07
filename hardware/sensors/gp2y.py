@@ -66,7 +66,7 @@ import spidev
 import time
 
 class GP2YSensor:
-    def __init__(self, spi_channel=0, led_pin=26, num_samples=5):
+    def __init__(self, spi_channel=0, adc_channel=0, led_pin=26, num_samples=5):
         # 🔹 SPI 설정
         self.spi = spidev.SpiDev()
         self.spi.open(0, spi_channel)
@@ -77,25 +77,28 @@ class GP2YSensor:
         GPIO.setmode(GPIO.BCM)
         GPIO.setup(led_pin, GPIO.OUT)
 
+        # 🔹 ADC 채널 설정
+        self.adc_channel = adc_channel
+
         # 🔹 이동 평균 필터 설정
         self.dust_values = []
         self.num_samples = num_samples
 
-    def read_adc(self, adc_channel):
+    def read_adc(self):
         """SPI를 사용하여 ADC 값 읽기"""
-        buff = self.spi.xfer2([1, (8 + adc_channel) << 4, 0])
+        buff = self.spi.xfer2([1, (8 + self.adc_channel) << 4, 0])
         adc_value = ((buff[1] & 3) << 8) + buff[2]
         return adc_value
 
     def get_data(self):
-        """미세먼지 농도 측정 및 이동 평균 필터 적용"""
+        """미세먼지 농도 측정 및 다양한 데이터 반환"""
         try:
             # 🔹 LED ON (샘플링)
             GPIO.output(self.led_pin, GPIO.LOW)
             time.sleep(0.00028)
 
-            # 🔹 ADC 데이터 읽기 (채널 0 사용)
-            adc_value = self.read_adc(0)
+            # 🔹 ADC 데이터 읽기
+            adc_value = self.read_adc()
 
             # 🔹 LED OFF (대기)
             time.sleep(0.00004)
@@ -103,21 +106,27 @@ class GP2YSensor:
             time.sleep(0.00968)
 
             # 🔹 전압 변환 (ADC 값 → 전압)
-            cal_voltage = adc_value * (5.0 / 1024.0)
+            voltage = adc_value * (5.0 / 1024.0)
 
-            # 🔹 미세먼지 농도 변환 (µg/m³)
-            dust_data = max(0, (0.172 * cal_voltage - 0.01) * 1000)
+            # 🔹 PM2.5 미세먼지 농도 변환 (µg/m³)
+            pm25 = max(0, (0.172 * voltage - 0.01) * 1000)
+
+            # 🔹 PM10 농도 예측 (단순 비례 모델 적용, 정확한 모델 필요)
+            pm10 = pm25 * 1.5  # 일반적인 PM2.5/PM10 비율 적용
 
             # 🔹 이동 평균 필터 적용
-            self.dust_values.append(dust_data)
+            self.dust_values.append(pm25)
             if len(self.dust_values) > self.num_samples:
                 self.dust_values.pop(0)
-            
-            filtered_dust = sum(self.dust_values) / len(self.dust_values)
+
+            filtered_pm25 = sum(self.dust_values) / len(self.dust_values)
 
             return {
-                "pm25_raw": round(dust_data, 2),  # 원본 데이터
-                "pm25_filtered": round(filtered_dust, 2),  # 이동 평균 필터 적용 데이터
+                "adc_raw": adc_value,  # ADC 원본 데이터
+                "voltage": round(voltage, 3),  # 변환된 전압 (V)
+                "pm25_raw": round(pm25, 2),  # 원본 PM2.5 데이터
+                "pm25_filtered": round(filtered_pm25, 2),  # 이동 평균 필터 적용 PM2.5 데이터
+                "pm10_estimate": round(pm10, 2),  # PM10 추정값
             }
 
         except Exception as e:
