@@ -117,7 +117,7 @@ def predict_air_quality():
     prediction = model.predict(input_data)
     
     print(f"✅ 예측된 Temperature: {prediction[0][0]:.2f}, Humidity: {prediction[0][1]:.2f}, TVOC: {prediction[0][2]:.2f}, eCO2: {prediction[0][3]:.2f}, PM2.5: {prediction[0][4]:.2f}, mq4: {prediction[0][5]:.2f}, mq7: {prediction[0][6]:.2f}, mq135: {prediction[0][7]:.2f}, air_quality: {prediction[0][8]:.2f}")
-    set_fan_speed_by_air_quality((prediction[0][8] - 1) / 3 * 4)
+    set_fan_pump_by_air_quality((prediction[0][8] - 1) / 3 * 4)
 
 # 공기질에 따른 팬 및 펌프 제어 함수
 def set_fan_pump_by_air_quality(predicted_air_quality):
