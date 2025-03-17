@@ -175,7 +175,7 @@ def set_fan_pump_by_air_quality(predicted_air_quality, predicted_mq4, predicted_
 
     fan1.set_speed(best_speed) # 공기청정 팬 작동
 
-    if predicted_mq4 > 150 or predicted_mq7 > 50 or predicted_mq135 > 50:
+    if predicted_mq4 > 150 or predicted_mq7 > 50 or predicted_mq135 > 200:
         ultrasonic1.turn_on()
         ultrasonic2.turn_on()
         fan2.set_speed(2)
@@ -185,6 +185,7 @@ def set_fan_pump_by_air_quality(predicted_air_quality, predicted_mq4, predicted_
         fan2.set_speed(0)
 
     time.sleep(5)
+    print()
 
 # 실행
 if __name__ == "__main__":
