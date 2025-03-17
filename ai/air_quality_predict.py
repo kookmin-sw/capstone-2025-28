@@ -1,5 +1,6 @@
 import pandas as pd
 import numpy as np
+import math
 import time
 import joblib
 import threading
@@ -53,9 +54,9 @@ def collect_data(interval=5):
             "tvoc": ens_data.get("tvoc"),
             "eco2": ens_data.get("eco2"),
             "pm2.5": gp2y_data.get("pm25_filtered"),
-            "mq4": mq4_data.get("mq4_raw"),
-            "mq7": mq7_data.get("mq7_raw"),
-            "mq135": mq135_data.get("mq135_raw"),
+            "mq4": mq4_data.get("mq4_methane_ppm"),
+            "mq7": mq7_data.get("mq7_co_ppm"),
+            "mq135": mq135_data.get("mq135_scaled_raw"),
             "air_quality": ens_data.get("air_quality"),
         }
         
@@ -118,30 +119,38 @@ def predict_air_quality():
     
         input_data = scaler.transform(input_data)
         prediction = model.predict(input_data)
+
+        predicted_temperature = prediction[0][0]
+        predicted_humidity = prediction[0][1]
+        predicted_tvoc = prediction[0][2]
+        predicted_eco2 = prediction[0][3]
+        predicted_pm25 = prediction[0][4]
+        predicted_mq4 = prediction[0][5]
+        predicted_mq7 = prediction[0][6]
+        predicted_mq135 = prediction[0][7]
+        predicted_air_quality = prediction[0][8]
     
-        print(f"✅ 예측된 Temperature: {prediction[0][0]:.2f}, Humidity: {prediction[0][1]:.2f}, TVOC: {prediction[0][2]:.2f}, eCO2: {prediction[0][3]:.2f}, PM2.5: {prediction[0][4]:.2f}, mq4: {prediction[0][5]:.2f}, mq7: {prediction[0][6]:.2f}, mq135: {prediction[0][7]:.2f}, air_quality: {prediction[0][8]:.2f}")
-        set_fan_pump_by_air_quality((prediction[0][8] - 1) / 3 * 4)
+        print(f"✅ 예측된 Temperature: {predicted_temperature:.2f}, Humidity: {predicted_humidity:.2f}, TVOC: {predicted_tvoc:.2f}, eCO2: {predicted_eco2:.2f}, PM2.5: {predicted_pm25:.2f}, mq4: {predicted_mq4:.2f}, mq7: {predicted_mq7:.2f}, mq135: {predicted_mq135:.2f}, air_quality: {predicted_air_quality:.2f}")
+        set_fan_pump_by_air_quality(predicted_air_quality, predicted_mq4, predicted_mq7, predicted_mq135)
     
     time.sleep(5)
 
 # 공기질에 따른 팬 및 펌프 제어 함수
-def set_fan_pump_by_air_quality(predicted_air_quality):
-    best_speed = max(0, min(4, int(round(predicted_air_quality))))
+def set_fan_pump_by_air_quality(predicted_air_quality, predicted_mq4, predicted_mq7, predicted_mq135):
+    best_speed = (predicted_air_quality - 1) / 3 * 4
+    best_speed = max(0, min(4, int(round(best_speed))))
 
-    if predicted_air_quality > 2.5:
+    fan1.set_speed(best_speed) # 공기청정 팬 작동
+
+    if predicted_mq4 > 150 or predicted_mq7 > 50 or predicted_mq135 > 50:
         ultrasonic1.turn_on()
         ultrasonic2.turn_on()
+        fan2.set_speed(2)
     else:
         ultrasonic1.turn_off()
         ultrasonic2.turn_off()
 
-    fan1.set_speed(best_speed)
-    fan2.set_speed(best_speed)
-
     time.sleep(5)
-
-    fan1.set_speed(0)
-    fan2.set_speed(0)
 
 # 실행
 if __name__ == "__main__":
