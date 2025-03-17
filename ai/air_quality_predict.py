@@ -62,11 +62,44 @@ def collect_data(interval=5):
         
         sensor_data_list.append(record)
         print("Collected:", record)
+        calculate_air_quality_score(record)
+
         time.sleep(interval)
     
         df = pd.DataFrame([record])
         df.to_csv(DATA_FILE, mode='a', index=False, header=not pd.io.common.file_exists(DATA_FILE))
         time.sleep(interval)
+
+# 종합 공기질 점수 계산 함수
+def calculate_air_quality_score(record):
+
+    base_score = 100
+
+    tvoc = record["tvoc"]
+    eco2 = record["eco2"]
+    pm25 = record["pm2.5"]
+    mq4 = record["mq4"]
+    mq7 = record["mq7"]
+    mq135 = record["mq135"]
+
+    mq4_penalty_socre = min(100, mq4 / 5)
+    mq7_penalty_score = min(100, mq7 / 2)
+    mq135_penalty_score = min(100, mq135 / 10)
+    pm25_penalty_score = min(100, pm25 * 1.5)
+    tvoc_penalty_score = min(100, tvoc / 10)
+    eco2_penalty_score = min(100, eco2 / 20)
+
+    air_quality_score = base_score - (
+        mq4_penalty_socre * 0.15 +
+        mq7_penalty_score * 0.15 +
+        mq135_penalty_score * 0.20 +
+        pm25_penalty_score * 0.20 +
+        tvoc_penalty_score * 0.15 +
+        eco2_penalty_score * 0.15
+    )
+
+    air_quality_score = int(max(0, min(100, round(air_quality_score))))
+    print("🔔 종합공기질 점수: ", air_quality_score)
 
 # 모델 학습 함수
 def train_model():
@@ -149,6 +182,7 @@ def set_fan_pump_by_air_quality(predicted_air_quality, predicted_mq4, predicted_
     else:
         ultrasonic1.turn_off()
         ultrasonic2.turn_off()
+        fan2.set_speed(0)
 
     time.sleep(5)
 
