@@ -34,6 +34,7 @@ class MQ135Sensor:
 
             return {
                 "mq135_raw": raw_value,
+                "mq135_scaled_raw": round((raw_value / 65535) * 1023),
                 "mq135_voltage": round(voltage, 3),
                 "mq135_co2_ppm": round(co2_ppm, 2),
             }
