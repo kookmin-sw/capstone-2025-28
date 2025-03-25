@@ -46,9 +46,9 @@ while time.time() - start_time < 60:
         "tvoc": ens_data.get("tvoc"),
         "eco2": ens_data.get("eco2"),
         "pm2.5": gp2y_data.get("pm25_filtered"),
-        "mq4": mq4_data.get("mq4_methane_ppm"),
-        "mq7": mq7_data.get("mq7_co_ppm"),
-        "mq135": mq135_data.get("mq135_scaled_raw"),
+        "mq4": mq4_data.get("mq4_raw"),
+        "mq7": mq7_data.get("mq7_raw"),
+        "mq135": mq135_data.get("mq135_raw"),
         "air_quality": ens_data.get("air_quality"),
     }
     
