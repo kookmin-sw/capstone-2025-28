@@ -54,10 +54,10 @@ def collect_data(interval=5):
             "tvoc": ens_data.get("tvoc"),
             "eco2": ens_data.get("eco2"),
             "pm2.5": gp2y_data.get("pm25_filtered"),
-            "mq4": mq4_data.get("mq4_methane_ppm"),
-            "mq7": mq7_data.get("mq7_co_ppm"),
-            "mq135": mq135_data.get("mq135_scaled_raw"),
-            "air_quality": ens_data.get("air_quality"),
+            "mq4": mq4_data.get("mq4_raw"),
+            "mq7": mq7_data.get("mq7_raw"),
+            "mq135": mq135_data.get("mq135_raw"),
+            "air_quality": max(1, ens_data.get("air_quality")),
         }
         
         sensor_data_list.append(record)
@@ -82,15 +82,15 @@ def calculate_air_quality_score(record):
     mq7 = record["mq7"]
     mq135 = record["mq135"]
 
-    mq4_penalty_socre = min(100, mq4 / 5)
-    mq7_penalty_score = min(100, mq7 / 2)
-    mq135_penalty_score = min(100, mq135 / 10)
-    pm25_penalty_score = min(100, pm25 * 1.5)
-    tvoc_penalty_score = min(100, tvoc / 10)
+    mq4_penalty_score = min(100, ((mq4 - 20000) / 65535) * 100)
+    mq7_penalty_score = min(100, ((mq7 - 10000) / 65535) * 100)
+    mq135_penalty_score = min(100, (mq135 - 5000 / 65535) * 100)
+    pm25_penalty_score = min(100, pm25)
+    tvoc_penalty_score = min(100, tvoc / 5)
     eco2_penalty_score = min(100, eco2 / 20)
 
     air_quality_score = base_score - (
-        mq4_penalty_socre * 0.15 +
+        mq4_penalty_score * 0.15 +
         mq7_penalty_score * 0.15 +
         mq135_penalty_score * 0.20 +
         pm25_penalty_score * 0.20 +
@@ -175,7 +175,7 @@ def set_fan_pump_by_air_quality(predicted_air_quality, predicted_mq4, predicted_
 
     fan1.set_speed(best_speed) # 공기청정 팬 작동
 
-    if predicted_mq4 > 150 or predicted_mq7 > 50 or predicted_mq135 > 200:
+    if predicted_mq4 > 40000 or predicted_mq7 > 35000 or predicted_mq135 > 15000:
         ultrasonic1.turn_on()
         ultrasonic2.turn_on()
         fan2.set_speed(2)
