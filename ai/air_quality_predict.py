@@ -82,12 +82,12 @@ def calculate_air_quality_score(record):
     mq7 = record["mq7"]
     mq135 = record["mq135"]
 
-    mq4_penalty_score = min(100, ((mq4 - 20000) / 65535) * 100)
+    mq4_penalty_score = min(100, ((mq4 - 30000) / 65535) * 100)
     mq7_penalty_score = min(100, ((mq7 - 10000) / 65535) * 100)
-    mq135_penalty_score = min(100, (mq135 - 5000 / 65535) * 100)
-    pm25_penalty_score = min(100, pm25)
+    mq135_penalty_score = min(100, (mq135 - 3000 / 65535) * 100)
+    pm25_penalty_score = min(100, pm25 - 20)
     tvoc_penalty_score = min(100, tvoc / 5)
-    eco2_penalty_score = min(100, eco2 / 20)
+    eco2_penalty_score = min(100, ((eco2 - 400) / 20))
 
     air_quality_score = base_score - (
         mq4_penalty_score * 0.15 +
