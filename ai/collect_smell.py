@@ -24,7 +24,7 @@ mq4 = MQ4Sensor()
 ens = ENSSensor()
 gp2y = GP2YSensor()
 
-DATA_FILE = "air_quality_data.csv"
+DATA_FILE = "smell_data.csv"
 MODEL_FILE = "smell_classification_model.pkl"
 
 # 악취 라벨 포함 데이터 수집 함수
@@ -38,36 +38,43 @@ def collect_smell_data(interval=5, max_records=20):
         print("❌ 잘못된 입력입니다. 프로그램을 종료합니다.")
         return
     
+    records = []
     records_collected = 0
-    while records_collected < max_records:
-        ens_data = ens.get_data() or {}
-        gp2y_data = gp2y.get_data() or {}
-        mq135_data = mq135.get_data() or {}
-        mq7_data = mq7.get_data() or {}
-        mq4_data = mq4.get_data() or {}
 
-        record = {
-            "temperature": ens_data.get("temp"),
-            "humidity": ens_data.get("humidity"),
-            "tvoc": ens_data.get("tvoc"),
-            "eco2": ens_data.get("eco2"),
-            "pm2.5": gp2y_data.get("pm25_filtered"),
-            "mq4": mq4_data.get("mq4_raw"),
-            "mq7": mq7_data.get("mq7_raw"),
-            "mq135": mq135_data.get("mq135_raw"),
-            "air_quality": max(1, ens_data.get("air_quality")),
-            "smell_level": label
-        }
+    try:
+        while records_collected < max_records:
+            ens_data = ens.get_data() or {}
+            gp2y_data = gp2y.get_data() or {}
+            mq135_data = mq135.get_data() or {}
+            mq7_data = mq7.get_data() or {}
+            mq4_data = mq4.get_data() or {}
 
-        print(f"📥 수집된 데이터 {records_collected+1}/{max_records}:", record)
+            record = {
+                "tvoc": ens_data.get("tvoc"),
+                "eco2": ens_data.get("eco2"),
+                "pm2.5": gp2y_data.get("pm25_filtered"),
+                "mq4": mq4_data.get("mq4_raw"),
+                "mq7": mq7_data.get("mq7_raw"),
+                "mq135": mq135_data.get("mq135_raw"),
+                "air_quality": max(1, ens_data.get("air_quality")),
+                "smell_level": label
+            }
 
-        df = pd.DataFrame([record])
-        df.to_csv(DATA_FILE, mode='a', index=False, header=not os.path.exists(DATA_FILE))
-        records_collected += 1
-        time.sleep(interval)
+            records.append(record)
+            records_collected += 1
+
+            print(f"📥 수집된 데이터 {records_collected}/{max_records}:", record)
+            time.sleep(interval)
+
+    except KeyboardInterrupt:
+        print("\n🛑 수집이 중단되어 데이터는 저장되지 않습니다.")
+        return
+
+    df = pd.DataFrame(records)
+    df.to_csv(DATA_FILE, mode='a', index=False, header=not os.path.exists(DATA_FILE))
+    print(f"\n✅ 총 {records_collected}개 데이터가 저장되었습니다 → {DATA_FILE}")
 
 # 악취 분류 모델 학습
-
 def train_smell_classification_model():
     if not os.path.exists(DATA_FILE):
         print("❌ 데이터 파일이 존재하지 않습니다.")
@@ -80,7 +87,7 @@ def train_smell_classification_model():
         print("❌ 'smell_level' 컬럼이 데이터에 없습니다.")
         return
 
-    X = df[["temperature", "humidity", "tvoc", "eco2", "pm2.5", "mq4", "mq7", "mq135"]]
+    X = df[["tvoc", "eco2", "pm2.5", "mq4", "mq7", "mq135"]]
     y = df["smell_level"]
 
     if len(set(y)) < 10:
