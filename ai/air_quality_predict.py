@@ -33,7 +33,8 @@ ultrasonic2 = UltrasonocController(pin=5)
 
 # 데이터 저장용 파일
 DATA_FILE = "air_quality_data.csv"
-MODEL_FILE = "air_quality_model.pkl"
+CLASS_MODEL_FILE = "smell_classification_model.pkl"
+REG_MODEL_FILE = "air_quality_regression_model.pkl"
 
 sensor_data_list = []
 collecting = True
@@ -102,7 +103,7 @@ def calculate_air_quality_score(record):
     print("🔔 종합공기질 점수: ", air_quality_score)
 
 # 모델 학습 함수
-def train_model():
+def train_regression_model():
     df = pd.read_csv(DATA_FILE)
     df = df.dropna()
     
@@ -122,17 +123,21 @@ def train_model():
     y_pred = model.predict(X_test)
     r2 = r2_score(y_test, y_pred)
 
-    print(f"✅ 결정 계수(R^2 Score): {r2:.2f}")
+    print(f"✅ 공기질 예측 모델 결정 계수(R^2 Score): {r2:.2f}")
     
-    joblib.dump((model, scaler), MODEL_FILE)
-    print("✅ 모델 학습 완료 및 저장")
+    joblib.dump((model, scaler), REG_MODEL_FILE)
+    print("✅ 공기질 예측 모델 학습 완료 및 저장")
 
 # 공기질 예측 함수
 def predict_air_quality():
-    if not os.path.exists(MODEL_FILE):
+    if not os.path.exists(REG_MODEL_FILE):
         print("❌ 모델 파일이 없습니다. 먼저 학습을 실행하세요!")
         return
-    model, scaler = joblib.load(MODEL_FILE)
+    
+    reg_model, reg_scaler = joblib.load(REG_MODEL_FILE)
+    class_model, class_scaler = joblib.load(CLASS_MODEL_FILE)
+
+    smell_labels = ["✅ 좋음", "⚠️ 보통", "🚨 나쁨"]
 
     while True:
         if sensor_data_list:
@@ -149,33 +154,38 @@ def predict_air_quality():
             latest_data.get("mq135_raw", 0),
             latest_data.get("air_quality", 0),
         ]], columns=["temperature", "humidity", "tvoc", "eco2", "pm2.5", "mq4", "mq7", "mq135", "air_quality"])
-    
-        input_data = scaler.transform(input_data)
-        prediction = model.predict(input_data)
 
-        predicted_temperature = prediction[0][0]
-        predicted_humidity = prediction[0][1]
-        predicted_tvoc = prediction[0][2]
-        predicted_eco2 = prediction[0][3]
-        predicted_pm25 = prediction[0][4]
-        predicted_mq4 = prediction[0][5]
-        predicted_mq7 = prediction[0][6]
-        predicted_mq135 = prediction[0][7]
-        predicted_air_quality = prediction[0][8]
+        reg_input = reg_scaler.transform(input_data)
+        class_input = class_scaler.transform(input_data)
+
+        air_quality_prediction = reg_model.predict(reg_input)[0]
+        smell_level_prediction = class_model.predict(class_input)[0]
+
+        predicted_temperature = air_quality_prediction[0][0]
+        predicted_humidity = air_quality_prediction[0][1]
+        predicted_tvoc = air_quality_prediction[0][2]
+        predicted_eco2 = air_quality_prediction[0][3]
+        predicted_pm25 = air_quality_prediction[0][4]
+        predicted_mq4 = air_quality_prediction[0][5]
+        predicted_mq7 = air_quality_prediction[0][6]
+        predicted_mq135 = air_quality_prediction[0][7]
+        predicted_air_quality = air_quality_prediction[0][8]
+
+        predicted_smell = smell_labels[smell_level_prediction]
     
-        print(f"✅ 예측된 Temperature: {predicted_temperature:.2f}, Humidity: {predicted_humidity:.2f}, TVOC: {predicted_tvoc:.2f}, eCO2: {predicted_eco2:.2f}, PM2.5: {predicted_pm25:.2f}, mq4: {predicted_mq4:.2f}, mq7: {predicted_mq7:.2f}, mq135: {predicted_mq135:.2f}, air_quality: {predicted_air_quality:.2f}")
-        set_fan_pump_by_air_quality(predicted_air_quality, predicted_mq4, predicted_mq7, predicted_mq135)
+        print(f"✅ 예측된 Temperature: {predicted_temperature:.2f}, Humidity: {predicted_humidity:.2f}, TVOC: {predicted_tvoc:.2f}, eCO2: {predicted_eco2:.2f}, PM2.5: {predicted_pm25:.2f}, mq4: {predicted_mq4:.2f}, mq7: {predicted_mq7:.2f}, mq135: {predicted_mq135:.2f}, air_quality: {predicted_air_quality:.2f}, smell: {predicted_smell}")
+        set_fan_pump_by_air_quality(predicted_air_quality, smell_level_prediction)
     
     time.sleep(5)
 
 # 공기질에 따른 팬 및 펌프 제어 함수
-def set_fan_pump_by_air_quality(predicted_air_quality, predicted_mq4, predicted_mq7, predicted_mq135):
+def set_fan_pump_by_air_quality(predicted_air_quality, smell_level_prediction):
     best_speed = (predicted_air_quality - 1) / 3 * 4
     best_speed = max(0, min(4, int(round(best_speed))))
 
     fan1.set_speed(best_speed) # 공기청정 팬 작동
 
-    if predicted_mq4 > 40000 or predicted_mq7 > 35000 or predicted_mq135 > 15000:
+    if smell_level_prediction > 1:
         ultrasonic1.turn_on()
         ultrasonic2.turn_on()
         fan2.set_speed(2)
@@ -195,7 +205,7 @@ if __name__ == "__main__":
 
     # 일정 시간 후 모델 학습 실행
     time.sleep(60)  # 충분한 데이터가 수집될 시간을 확보
-    train_model()
+    train_regression_model()
 
     # 실시간 공기질 예측 실행 (별도 스레드)
     prediction_thread = threading.Thread(target=predict_air_quality, daemon=True)
