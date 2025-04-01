@@ -90,7 +90,7 @@ def train_smell_classification_model():
     X = df[["tvoc", "eco2", "pm2.5", "mq4", "mq7", "mq135"]]
     y = df["smell_level"]
 
-    if len(set(y)) < 10:
+    if len(set(y)) < 3:
         print("⚠️ 다양한 악취 레벨 데이터가 부족해 모델 평가 생략 (현재 클래스 수:", len(set(y)), ")")
         return
 
