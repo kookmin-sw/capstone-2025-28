@@ -17,8 +17,9 @@ import subprocess
 DEVICE_KEY = "RPI-001"
 sio = socketio.Client()
 last_motion_time = 0
-purifier_mode = 1
+purifier_mode = 0
 purifier_speed = 2
+purifier_is_on = False
 predictor_process = None
 
 def minutes_to_hhmm(minutes: int) -> str:
@@ -58,10 +59,12 @@ def on_control(data):
     device = data.get("device")
     state = data.get("state")
     if device == "isPurifierOn":
-        fan1.set_speed(3 if state else 0)
-        fan2.set_speed(2 if state else 0)
-    elif device == "purifierSpeed":
         global purifier_speed
+        global purifier_is_on
+        purifier_is_on = state
+        fan1.set_speed(purifier_speed if purifier_is_on else 0)
+        fan2.set_speed(purifier_speed if purifier_is_on else 0)
+    elif device == "purifierSpeed":
         purifier_speed = state
         fan1.set_speed(purifier_speed)
         fan2.set_speed(purifier_speed)
@@ -80,7 +83,7 @@ def on_control(data):
                 predictor_process = subprocess.Popen(["python3", "../ai/air_quality_predict.py"])
                 print("✅ 공기질 예측 프로세스 실행 시작")
             else:
-                print("ℹ️ 공기질 예측 프로세스는 이미 실행 중입니다.")
+                print("ℹ공기질 예측 프로세스는 이미 실행 중입니다.")
         else:
             if predictor_process and predictor_process.poll() is None:
                 predictor_process.terminate()
@@ -93,7 +96,7 @@ def on_control(data):
 
 def get_current_status():
     return {
-        "isPurifierOn": purifier_speed > 0,
+        "isPurifierOn": purifier_is_on,
         "purifierSpeed": purifier_speed,
         "purifierAutoOn": purifier_auto_on,
         "purifierAutoOff": purifier_auto_off,
@@ -138,7 +141,7 @@ def collect_sensor_data():
         "motionDetectedTime": last_motion_time,
         "aiRecommendation": "지금 환기하면 좋습니다! 2시간 후 미세먼지 증가 예상 됩니다.",
 
-        "isPurifierOn": purifier_speed > 0,
+        "isPurifierOn": purifier_is_on,
         "purifierSpeed": purifier_speed,
         "purifierAutoOn": purifier_auto_on,
         "purifierAutoOff": purifier_auto_off,
