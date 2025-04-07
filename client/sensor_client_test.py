@@ -125,7 +125,7 @@ def send_sensor_loop():
 
 if __name__ == "__main__":
     try:
-        sio.connect("http://localhost:3001")
+        sio.connect("http://ec2-13-125-170-246.ap-northeast-2.compute.amazonaws.com:3001")
         # 연결 후 루프 시작
         if sio.connected:
             send_sensor_loop()

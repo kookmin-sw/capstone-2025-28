@@ -59,6 +59,7 @@ export const AirQualityControlSection = (): JSX.Element => {
     motionDetectedTime,
     aiRecommendation,
     webcamImage,
+    pm25_filtered,
     fetchWebcamImage,
     sendControlSignal,
     registerDashboard,
@@ -71,7 +72,7 @@ export const AirQualityControlSection = (): JSX.Element => {
       label: "Air Quality",
       color: "hsl(var(--chart-1))",
     },
-    air_quality: {
+    pm25_filtered: {
       label: "미세먼지",
       color: "hsl(var(--chart-2))",
     },
@@ -116,7 +117,7 @@ export const AirQualityControlSection = (): JSX.Element => {
       const newData = {
         time,
         air_quality_score,
-        air_quality,
+        pm25_filtered,
         tvoc,
         eco2,
         mq135_co2_ppm,
@@ -143,7 +144,7 @@ export const AirQualityControlSection = (): JSX.Element => {
       });
     }, 1000);
     return () => clearInterval(interval);
-  }, [air_quality_score, air_quality, tvoc, eco2, mq135_co2_ppm, mq7_co_ppm, mq4_methane_ppm, currentDeviceKey]);
+  }, [air_quality_score, pm25_filtered, tvoc, eco2, mq135_co2_ppm, mq7_co_ppm, mq4_methane_ppm, currentDeviceKey]);
   
   useEffect(() => {
     if (isLiveViewOpen) {
@@ -483,7 +484,7 @@ export const AirQualityControlSection = (): JSX.Element => {
                   </div>
 
                   <div className="w-fit mt-[-1.00px] rotate-180 [font-family:'Lato',Helvetica] font-semibold text-neutral-100 text-4xl tracking-[0] leading-normal whitespace-nowrap">
-                    {air_quality}
+                    {pm25_filtered}
                   </div>
                 </div>
               </div>
