@@ -124,12 +124,12 @@ def calculate_air_quality_score(record):
     mq135 = record["mq135"]
     smell = record["smell_level"]
 
-    mq4_penalty_score = min(100, ((mq4 - 30000) / 65535) * 100)
-    mq7_penalty_score = min(100, ((mq7 - 15000) / 65535) * 100)
-    mq135_penalty_score = min(100, ((mq135 - 3000) / 65535) * 100)
+    mq4_penalty_score = min(100, ((mq4 - 20000) / 65535) * 100)
+    mq7_penalty_score = min(100, ((mq7 - 10000) / 65535) * 100)
+    mq135_penalty_score = min(100, (mq135 / 65535) * 100)
     pm25_penalty_score = min(100, pm25 - 30)
     tvoc_penalty_score = min(100, tvoc / 3)
-    eco2_penalty_score = min(100, ((eco2 - 400) / 20))
+    eco2_penalty_score = min(100, ((eco2 - 400) / 15))
     smell_penalty_score = min(100, smell * 30)
 
     air_quality_score = base_score - (
