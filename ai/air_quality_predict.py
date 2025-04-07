@@ -116,10 +116,10 @@ def calculate_air_quality_score(record):
     smell = record["smell_level"]
 
     mq4_penalty_score = min(100, ((mq4 - 30000) / 65535) * 100)
-    mq7_penalty_score = min(100, ((mq7 - 10000) / 65535) * 100)
+    mq7_penalty_score = min(100, ((mq7 - 15000) / 65535) * 100)
     mq135_penalty_score = min(100, (mq135 - 3000 / 65535) * 100)
-    pm25_penalty_score = min(100, pm25 - 20)
-    tvoc_penalty_score = min(100, tvoc / 5)
+    pm25_penalty_score = min(100, pm25 - 30)
+    tvoc_penalty_score = min(100, tvoc / 4)
     eco2_penalty_score = min(100, ((eco2 - 400) / 20))
     smell_penalty_score = min(100, smell * 30)
 
@@ -230,6 +230,15 @@ def set_fan_pump_by_air_quality(predicted_air_quality, predicted_smell):
 
 # 실행
 if __name__ == "__main__":
+
+    if os.path.exists(DATA_FILE):
+        os.remove(DATA_FILE)
+        print("🗑️ 이전 공기질 데이터 초기화 완료!")
+
+    if os.path.exists(REG_MODEL_FILE):
+        os.remove(REG_MODEL_FILE)
+        print("🗑️ 이전 공기질 예측 모델 초기화 완료!")
+
     # 센서 데이터 수집 스레드 실행
     sensor_thread = threading.Thread(target=collect_data, daemon=True)
     sensor_thread.start()
