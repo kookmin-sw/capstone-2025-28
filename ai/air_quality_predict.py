@@ -4,10 +4,14 @@ import math
 import time
 import joblib
 import threading
+
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler
-from sklearn.ensemble import RandomForestRegressor
-from sklearn.metrics import mean_absolute_error, r2_score
+from tensorflow.keras.models import Sequential
+from tensorflow.keras.layers import LSTM, Dense, Input
+from tensorflow.keras.callbacks import ModelCheckpoint, EarlyStopping
+from tensorflow.keras.models import load_model
+from sklearn.metrics import r2_score
 
 import sys
 import os
@@ -33,18 +37,22 @@ ultrasonic2 = UltrasonocController(pin=5)
 
 # 데이터 저장용 파일
 DATA_FILE = "air_quality_data.csv"
-CLASS_MODEL_FILE = "smell_classification_model.pkl"
-REG_MODEL_FILE = "air_quality_regression_model.pkl"
+AIR_QUALITY_MODEL_FILE = "air_quality_model.keras"
+AIR_QUALITY_SCALER_FILE = "air_quality_scaler.pkl"
+SMELL_MODEL_FILE = "smell_classification_model.pkl"
 
 sensor_data_list = []
+real_value_history = []
+prediction_history = []
+prediction_count = 0
 collecting = True
 
 # 데이터 수집 및 저장 함수
 def collect_data(interval=5):
     global collecting
 
-    if os.path.exists(CLASS_MODEL_FILE):
-        class_model, class_scaler = joblib.load(CLASS_MODEL_FILE)
+    if os.path.exists(SMELL_MODEL_FILE):
+        class_model, class_scaler = joblib.load(SMELL_MODEL_FILE)
         smell_labels = ["✅ 좋음", "⚠️ 보통", "🚨 나쁨"]
         print("✅ 냄새 분류 모델 로드 완료")
     else:
@@ -117,7 +125,7 @@ def calculate_air_quality_score(record):
 
     mq4_penalty_score = min(100, ((mq4 - 30000) / 65535) * 100)
     mq7_penalty_score = min(100, ((mq7 - 15000) / 65535) * 100)
-    mq135_penalty_score = min(100, (mq135 - 3000 / 65535) * 100)
+    mq135_penalty_score = min(100, ((mq135 - 3000) / 65535) * 100)
     pm25_penalty_score = min(100, pm25 - 30)
     tvoc_penalty_score = min(100, tvoc / 4)
     eco2_penalty_score = min(100, ((eco2 - 400) / 20))
@@ -143,80 +151,179 @@ def train_regression_model():
     df = pd.read_csv(DATA_FILE)
     df = df.dropna()
     
-    feature_columns = ["temperature", "humidity", "tvoc", "eco2", "pm2.5", "mq4", "mq7", "mq135", "air_quality", "smell_level"]
-    X = df[feature_columns]
-    y = df[feature_columns]
-    
+    X_columns = ["tvoc", "eco2", "pm2.5", "mq4", "mq7", "mq135", "air_quality", "smell_level"]
+    future_df = df.shift(-2)
+    y_columns = ["tvoc", "eco2", "pm2.5", "air_quality"]
+
+    X_list = []
+    for i in range(2, len(df)-2):  # 2부터 시작 (직전 2개 필요)
+        merged = []
+        for j in range(2, -1, -1):  # t-2, t-1, t 순서
+            merged += df.iloc[i-j][X_columns].tolist()
+        X_list.append(merged)
+
+    y = future_df[y_columns].iloc[2:-2].values
+
+    X = np.array(X_list)
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
     
     scaler = StandardScaler()
     X_train = scaler.fit_transform(X_train)
     X_test = scaler.transform(X_test)
+
+    X_train = X_train.reshape((X_train.shape[0], 3, -1))
+    X_test = X_test.reshape((X_test.shape[0], 3, -1))
     
-    model = RandomForestRegressor(n_estimators=100, random_state=42)
-    model.fit(X_train, y_train)
+    model = Sequential()
+    model.add(Input(shape=(X_train.shape[1], X_train.shape[2])))
+    model.add(LSTM(64, return_sequences=True))
+    model.add(LSTM(32))
+    model.add(Dense(32, activation='relu'))
+    model.add(Dense(y_train.shape[1]))
+    model.compile(optimizer='adam', loss='mse')
+
+    early_stop = EarlyStopping(monitor='val_loss', patience=10, restore_best_weights=True)
+    checkpoint = ModelCheckpoint(AIR_QUALITY_MODEL_FILE, save_best_only=True)
+
+    epochs = 50
+    batchsize = 32
+    validation_split = 0.2 if len(X_train) > 10 else 0.0
+
+    model.fit(X_train, y_train, epochs=epochs, batch_size=batchsize, validation_split=validation_split, callbacks=[checkpoint, early_stop])
 
 # 모델 평가
     y_pred = model.predict(X_test)
     r2 = r2_score(y_test, y_pred)
-
     print(f"✅ 공기질 예측 모델 결정 계수(R^2 Score): {r2:.2f}")
     
-    joblib.dump((model, scaler), REG_MODEL_FILE)
+    model.save(AIR_QUALITY_MODEL_FILE)
+    joblib.dump(scaler, AIR_QUALITY_SCALER_FILE)
     print("✅ 공기질 예측 모델 학습 완료 및 저장")
+
+# 추세 분석
+def analyze_trend():
+    if len(prediction_history) < 3:
+        return
+
+    latest = prediction_history[-1]
+    prev = prediction_history[-2]
+    before_prev = prediction_history[-3]
+
+    messages = []
+
+    eco2_now, eco2_prev, eco2_before = latest[1], prev[1], before_prev[1]
+    tvoc_now, tvoc_prev, tvoc_before = latest[0], prev[0], before_prev[0]
+    air_quality_now, air_quality_prev, air_quality_before = latest[3], prev[3], before_prev[3]
+
+    # eco2 증가/감소
+    if eco2_now > eco2_prev > eco2_before:
+        messages.append("⬆️ 이산화탄소 농도가 계속 증가하고 있어요. 환기가 필요합니다.")
+
+    # tvoc 급격한 상승/하락
+    if tvoc_prev != 0 and tvoc_before != 0:
+        tvoc_increase_rate = (tvoc_now - tvoc_before) / tvoc_before
+
+        if tvoc_increase_rate >= 0.3:
+            messages.append(f"⚠️ TVOC 농도가 30% 이상 급증했습니다! 현재 수치: {tvoc_now:.2f}")
+
+    # 공기질 점수 추세
+    if air_quality_now < air_quality_prev < air_quality_before:
+        messages.append("⚠️ 공기질이 점점 나빠지고 있습니다.")
+
+    for msg in messages:
+        print(msg)
+        print()
 
 # 공기질 예측 함수
 def predict_air_quality():
-    if not os.path.exists(REG_MODEL_FILE):
+    global prediction_count
+
+    if not os.path.exists(AIR_QUALITY_MODEL_FILE):
         print("❌ 모델 파일이 없습니다. 먼저 학습을 실행하세요!")
         return
     
-    reg_model, reg_scaler = joblib.load(REG_MODEL_FILE)
+    reg_model = load_model(AIR_QUALITY_MODEL_FILE)
+    reg_scaler = joblib.load(AIR_QUALITY_SCALER_FILE)
 
     while True:
-        if sensor_data_list:
-            latest_data = sensor_data_list[-1]  # 최신 센서 데이터 가져오기
-   
-        input_data = pd.DataFrame([[
-            latest_data.get("temperature", 0),
-            latest_data.get("humidity", 0),
-            latest_data.get("tvoc", 0),
-            latest_data.get("eco2", 0),
-            latest_data.get("pm2.5", 0),
-            latest_data.get("mq4", 0),
-            latest_data.get("mq7", 0),
-            latest_data.get("mq135", 0),
-            latest_data.get("air_quality", 0),
-            latest_data.get("smell_level", 0),
-        ]], columns=["temperature", "humidity", "tvoc", "eco2", "pm2.5", "mq4", "mq7", "mq135", "air_quality", "smell_level"])
+        if len(sensor_data_list) >= 3:
+            merged_input = []
+            for i in range(3):
+                latest_data = sensor_data_list[-(3-i)]
+                merged_input += [
+                    latest_data.get("tvoc", 0),
+                    latest_data.get("eco2", 0),
+                    latest_data.get("pm2.5", 0),
+                    latest_data.get("mq4", 0),
+                    latest_data.get("mq7", 0),
+                    latest_data.get("mq135", 0),
+                    latest_data.get("air_quality", 0),
+                    latest_data.get("smell_level", 0),
+                ]
+            
+            input_data = np.array(merged_input).reshape(1, -1)  # (1, 특성수)
+            reg_input = reg_scaler.transform(input_data)
+            reg_input = reg_input.reshape(1, 3, -1)  # (샘플, 시퀀스 길이 3, 특성수)
 
-        reg_input = reg_scaler.transform(input_data)
-        air_quality_prediction = reg_model.predict(reg_input)[0]
+            air_quality_prediction = reg_model.predict(reg_input)[0]
 
-        predicted_temperature = air_quality_prediction[0]
-        predicted_humidity = air_quality_prediction[1]
-        predicted_tvoc = air_quality_prediction[2]
-        predicted_eco2 = air_quality_prediction[3]
-        predicted_pm25 = air_quality_prediction[4]
-        predicted_mq4 = air_quality_prediction[5]
-        predicted_mq7 = air_quality_prediction[6]
-        predicted_mq135 = air_quality_prediction[7]
-        predicted_air_quality = air_quality_prediction[8]
-        predicted_smell = air_quality_prediction[9]
+        predicted_tvoc = air_quality_prediction[0]
+        predicted_eco2 = air_quality_prediction[1]
+        predicted_pm25 = air_quality_prediction[2]
+        predicted_air_quality = air_quality_prediction[3]
     
-        print(f"✅ 예측된 Temperature: {predicted_temperature:.2f}, Humidity: {predicted_humidity:.2f}, TVOC: {predicted_tvoc:.2f}, eCO2: {predicted_eco2:.2f}, PM2.5: {predicted_pm25:.2f}, mq4: {predicted_mq4:.2f}, mq7: {predicted_mq7:.2f}, mq135: {predicted_mq135:.2f}, air_quality: {predicted_air_quality:.2f}, smell: {predicted_smell:.2f}")
-        set_fan_pump_by_air_quality(predicted_air_quality, predicted_smell)
+        print(f"✅ 예측된 TVOC: {predicted_tvoc:.2f}, eCO2: {predicted_eco2:.2f}, PM2.5: {predicted_pm25:.2f}, air_quality: {predicted_air_quality:.2f}")
+        
+        set_fan_pump_by_air_quality(predicted_air_quality, merged_input[23])
+
+        # 예측값/실제값 저장
+        prediction_history.append(air_quality_prediction)
+        real_value_history.append([
+            sensor_data_list[-2].get("tvoc", 0),
+            sensor_data_list[-2].get("eco2", 0),
+            sensor_data_list[-2].get("pm2.5", 0),
+            sensor_data_list[-2].get("air_quality", 0),
+        ])
+
+        if len(prediction_history) > 10:
+            prediction_history.pop(0)
+            real_value_history.pop(0)
+
+        prediction_count += 1
     
+        if prediction_count >= 10:
+            try:
+                if len(real_value_history) >= 2 and len(prediction_history) >= 2:
+                    y_true = np.array(real_value_history)
+                    y_pred = np.array(prediction_history)
+                    r2 = r2_score(y_true, y_pred)
+                    print(f"🔵 현재 예측 결정계수 (R²): {r2:.2f}")
+
+                    if r2 < 0.7:
+                        print("⚠️ 결정계수가 0.7 이하입니다. 모델을 재학습합니다...")
+                        train_regression_model()
+                        reg_model = load_model(AIR_QUALITY_MODEL_FILE)
+                        reg_scaler = joblib.load(AIR_QUALITY_SCALER_FILE)
+                        print("✅ 모델 재학습 완료 및 적용")
+                else:
+                    print("⏳ 예측 결과가 아직 부족하여 R² 계산을 건너뜁니다.")
+            except Exception as e:
+                print(f"⚠️ 결정계수 계산 중 오류 발생: {e}")
+
+            prediction_count = 0  # 리셋
+
+        analyze_trend()
+
         time.sleep(5)
 
 # 공기질에 따른 팬 및 펌프 제어 함수
-def set_fan_pump_by_air_quality(predicted_air_quality, predicted_smell):
+def set_fan_pump_by_air_quality(predicted_air_quality, current_smell):
     best_speed = (predicted_air_quality - 1) / 3 * 4
     best_speed = max(0, min(4, int(round(best_speed))))
 
     fan1.set_speed(best_speed) # 공기청정 팬 작동
 
-    if predicted_smell > 1:
+    if current_smell > 1:
         ultrasonic1.turn_on()
         ultrasonic2.turn_on()
         fan2.set_speed(2)
@@ -235,8 +342,9 @@ if __name__ == "__main__":
         os.remove(DATA_FILE)
         print("🗑️ 이전 공기질 데이터 초기화 완료!")
 
-    if os.path.exists(REG_MODEL_FILE):
-        os.remove(REG_MODEL_FILE)
+    if os.path.exists(AIR_QUALITY_MODEL_FILE):
+        os.remove(AIR_QUALITY_MODEL_FILE)
+        os.remove(AIR_QUALITY_SCALER_FILE)
         print("🗑️ 이전 공기질 예측 모델 초기화 완료!")
 
     # 센서 데이터 수집 스레드 실행
@@ -252,5 +360,9 @@ if __name__ == "__main__":
     prediction_thread.start()
 
     # 메인 스레드가 종료되지 않도록 유지
-    while True:
-        time.sleep(1)
+    try:
+        while True:
+            time.sleep(1)
+    except KeyboardInterrupt:
+        collecting = False
+        print("🛑 프로그램 종료")
