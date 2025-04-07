@@ -15,12 +15,14 @@ class FanController:
 
         self.fan = GPIO.PWM(self.pin, self.pwm_freq)
         self.fan.start(0)  # 초기 속도 0%
+        self.current_speed = 0
 
     def set_speed(self, level):
         """팬 속도를 변경 (0~4 레벨, 0%~100%)"""
         if 0 <= level < len(self.speed_levels):
             speed = self.speed_levels[level]
             print(f"🚀 팬 속도 설정: {speed}%")
+            self.current_speed = level
             self.fan.ChangeDutyCycle(speed)
         else:
             print("⚠️ 잘못된 입력: 0~4 사이의 값을 입력하세요.")

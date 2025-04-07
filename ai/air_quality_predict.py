@@ -4,6 +4,9 @@ import math
 import time
 import joblib
 import threading
+import subprocess
+
+predictor_process = None
 
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler
