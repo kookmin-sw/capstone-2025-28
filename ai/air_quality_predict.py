@@ -127,12 +127,12 @@ def calculate_air_quality_score(record):
     mq135 = record["mq135"]
     smell = record["smell_level"]
 
-    mq4_penalty_score = min(100, ((mq4 - 20000) / 65535) * 100)
-    mq7_penalty_score = min(100, ((mq7 - 10000) / 65535) * 100)
-    mq135_penalty_score = min(100, (mq135 / 65535) * 100)
-    pm25_penalty_score = min(100, pm25 - 30)
+    mq4_penalty_score = min(100, max(0, ((mq4 - 20000) / 65535) * 100))
+    mq7_penalty_score = min(100, max((mq7 - 10000) / 65535 * 100))
+    mq135_penalty_score = min(100, max(0, (mq135 / 65535) * 100))
+    pm25_penalty_score = min(100, max(0, pm25 - 30))
     tvoc_penalty_score = min(100, tvoc / 3)
-    eco2_penalty_score = min(100, ((eco2 - 400) / 15))
+    eco2_penalty_score = min(100, max(0, ((eco2 - 400) / 15)))
     smell_penalty_score = min(100, smell * 30)
 
     air_quality_score = base_score - (
@@ -359,6 +359,9 @@ if __name__ == "__main__":
         os.remove(AIR_QUALITY_MODEL_FILE)
         os.remove(AIR_QUALITY_SCALER_FILE)
         print("🗑️ 이전 공기질 예측 모델 초기화 완료!")
+
+    ultrasonic1.turn_off()
+    ultrasonic2.turn_off()
 
     # 센서 데이터 수집 스레드 실행
     sensor_thread = threading.Thread(target=collect_data, args=(3,), daemon=True)
