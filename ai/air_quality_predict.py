@@ -50,6 +50,8 @@ prediction_history = []
 prediction_count = 0
 previous_trend_messages = []
 collecting = True
+last_diffuser_on_time = 0
+DIFFUSER_COOLDOWN = 300
 
 # 데이터 수집 및 저장 함수
 def collect_data(interval=3):
@@ -128,7 +130,7 @@ def calculate_air_quality_score(record):
     smell = record["smell_level"]
 
     mq4_penalty_score = min(100, max(0, ((mq4 - 20000) / 65535) * 100))
-    mq7_penalty_score = min(100, max((mq7 - 10000) / 65535 * 100))
+    mq7_penalty_score = min(100, max(0, (mq7 - 10000) / 65535 * 100))
     mq135_penalty_score = min(100, max(0, (mq135 / 65535) * 100))
     pm25_penalty_score = min(100, max(0, pm25 - 30))
     tvoc_penalty_score = min(100, tvoc / 3)
@@ -213,9 +215,9 @@ def analyze_trend():
     if len(prediction_history) < 3:
         return
 
-    latest = prediction_history[-1]
-    prev = prediction_history[-2]
-    before_prev = prediction_history[-3]
+    latest = real_value_history[-1]
+    prev = real_value_history[-2]
+    before_prev = real_value_history[-3]
 
     messages = []
 
@@ -331,22 +333,25 @@ def predict_air_quality():
 
 # 공기질에 따른 팬 및 펌프 제어 함수
 def set_fan_pump_by_air_quality(predicted_air_quality, current_smell):
+    global last_diffuser_on_time
+    now = time.time()
     best_speed = (predicted_air_quality - 1) / 3 * 4
     best_speed = max(0, min(4, int(round(best_speed))))
 
     fan1.set_speed(best_speed) # 공기청정 팬 작동
 
     if current_smell > 1:
-        ultrasonic1.turn_on()
-        ultrasonic2.turn_on()
-        fan2.set_speed(2)
+        if now - last_diffuser_on_time >= DIFFUSER_COOLDOWN:
+            ultrasonic1.turn_on()
+            ultrasonic2.turn_on()
+            fan2.set_speed(2)
+            last_diffuser_on_time = now
     else:
         ultrasonic1.turn_off()
         ultrasonic2.turn_off()
         fan2.set_speed(0)
 
     print()
-    time.sleep(3)
 
 # 실행
 if __name__ == "__main__":
@@ -359,9 +364,6 @@ if __name__ == "__main__":
         os.remove(AIR_QUALITY_MODEL_FILE)
         os.remove(AIR_QUALITY_SCALER_FILE)
         print("🗑️ 이전 공기질 예측 모델 초기화 완료!")
-
-    ultrasonic1.turn_off()
-    ultrasonic2.turn_off()
 
     # 센서 데이터 수집 스레드 실행
     sensor_thread = threading.Thread(target=collect_data, args=(3,), daemon=True)
