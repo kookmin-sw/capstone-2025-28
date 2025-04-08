@@ -20,7 +20,7 @@ export const DigitalTwinStatusSection = () => {
   const [unreadCount, setUnreadCount] = useState(0);
  
   // 알림 데이터를 관리하는 상태
-  const [notifications, setNotifications] = useState([]);
+  const [notifications, setNotifications] = useState<{ id: string | number; message: string }[]>([]);
   const [activeRoomIndex, setActiveRoomIndex] = useState(0);
   const { registerDashboard } = useSocketStore();
  
@@ -35,11 +35,11 @@ export const DigitalTwinStatusSection = () => {
 
   const fetchNotifications = async () => {
     const res = await fetch("/api/notifications");
-    const data = await res.json();
-    setNotifications(data);
+    const data: { notifications: { id: string | number; message: string }[]; unreadCount: number } = await res.json();
+    setNotifications(data.notifications);
   };
   
-  const addNotification = async (message) => {
+  const addNotification = async (message: string) => {
     await fetch("/api/notifications", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -48,7 +48,7 @@ export const DigitalTwinStatusSection = () => {
     fetchNotifications(); // 새 알림 추가 후 다시 가져오기
   };
   
-  const markAsRead = async (id) => {
+  const markAsRead = async (id: string | number) => {
     await fetch("/api/notifications", {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },

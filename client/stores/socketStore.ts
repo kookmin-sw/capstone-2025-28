@@ -33,13 +33,21 @@ interface SocketState {
     motionDetectedTime: number;
     aiRecommendation: string;
     isPurifierOn: boolean;
+    purifierSpeed: number;
+    purifierAutoOn: number;
+    purifierAutoOff: number;
+    purifierMode: number;
     isDiffuserOn: boolean;
+    diffuserSpeed: number;
+    diffuserPeriod: number;
+    diffuserType: number;
+    diffuserMode: number;
     webcamImage: string | null;
     currentDeviceKey: string;
     setWebcamImage: (image: string | null) => void;
     fetchWebcamImage: () => Promise<void>;
     updateData: (data: Partial<SocketState>) => void;
-    sendControlSignal: (device: string, state: boolean) => void;
+    sendControlSignal: (device: string, state: boolean | number) => void;
     registerDashboard: (device_key: string) => void;
     resetSensorData: () => void;
 }
@@ -111,21 +119,21 @@ export const useSocketStore = create<SocketState>((set) => ({
 
   updateData: (data) => set((state) => ({ ...state, ...data })),
 
-  sendControlSignal: (device, state) => {
+  sendControlSignal: (device: string, state: boolean | number) => {
     socket.emit("control", { device, state });
     set((prevState) => ({
       ...prevState,
       [device]: state, // UI에 즉시 반영
     }));
   },
-  registerDashboard: (device_key) => {
+  registerDashboard: (device_key: string) => {
     useSocketStore.getState().resetSensorData();
     socket.emit("register_dashboard", { device_key });
     set(() => ({ currentDeviceKey: device_key }));
   },
   webcamImage: null,
 
-  setWebcamImage: (image) => set(() => ({ webcamImage: image })),
+  setWebcamImage: (image: string | null) => set(() => ({ webcamImage: image })),
 
   fetchWebcamImage: async () => {
     try {

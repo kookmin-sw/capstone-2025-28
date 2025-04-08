@@ -10,7 +10,10 @@ import { useFrame } from "@react-three/fiber";
 import * as THREE from "three";
 
 const LevoitPurifierModel = () => {
-  const { diffuserSpeed, purifierSpeed, isPurifierOn, isDiffuserOn } = useSocketStore();
+  const diffuserSpeed = useSocketStore((state) => state.diffuserSpeed);
+  const purifierSpeed = useSocketStore((state) => state.purifierSpeed);
+  const isPurifierOn = useSocketStore((state) => state.isPurifierOn);
+  const isDiffuserOn = useSocketStore((state) => state.isDiffuserOn);
   const effectiveDiffuserSpeed = isDiffuserOn ? diffuserSpeed : 0;
   const effectivePurifierSpeed = isPurifierOn ? purifierSpeed : 0;
 

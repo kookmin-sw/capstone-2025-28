@@ -7,7 +7,8 @@ let notifications = [
 
 // 📌 **알림 목록 조회 (GET)**
 export async function GET() {
-  return NextResponse.json(notifications);
+  const unreadCount = notifications.filter((n) => !n.is_read).length;
+  return NextResponse.json({ notifications, unreadCount });
 }
 
 // 📌 **새로운 알림 추가 (POST)**
@@ -25,10 +26,4 @@ export async function PATCH(req: Request) {
     n.id === id ? { ...n, is_read: true } : n
   );
   return NextResponse.json({ success: true });
-}
-
-// 📌 **읽지 않은 알림 개수 조회 (GET)**
-export async function GET_UNREAD_COUNT() {
-  const unreadCount = notifications.filter((n) => !n.is_read).length;
-  return NextResponse.json({ count: unreadCount });
 }

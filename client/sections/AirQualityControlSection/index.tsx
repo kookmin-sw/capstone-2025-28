@@ -17,6 +17,13 @@ import {
 } from "@/components/ui/select"
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
 
+type ChartConfig = {
+  [key: string]: {
+    label: string;
+    color: string;
+  };
+};
+
 const parseTimeStringToMinutes = (hhmm: string): number => {
   const [h, m] = hhmm.split(":").map(Number);
   return h * 60 + m;
@@ -28,7 +35,7 @@ const formatTimeToHHMM = (minutes: number): string => {
   return `${h}:${m}`;
 };
 
-export const AirQualityControlSection = (): JSX.Element => {
+export const AirQualityControlSection = (): React.JSX.Element => {
   // const [isPurifierOn, setIsPurifierOn] = useState(false);
   // const [isDiffuserOn, setIsDiffuserOn] = useState(false);
   const [showCards, setShowCards] = useState(true);
@@ -98,17 +105,16 @@ export const AirQualityControlSection = (): JSX.Element => {
     },
   } satisfies ChartConfig;
   const [currentMetric, setCurrentMetric] = useState<keyof typeof chartConfig>("air_quality_score");
-  const [currentTime, setCurrentTime] = useState(() => {
-    const now = new Date();
-    return `${now.getHours()}시 ${now.getMinutes()}분`;
-  });
+  const [currentTime, setCurrentTime] = useState<string | null>(null);
   
   useEffect(() => {
-    const interval = setInterval(() => {
-      const now = new Date();
-      setCurrentTime(`${now.getHours()}시 ${now.getMinutes()}분`);
-    }, 1000);
-    return () => clearInterval(interval);
+    if (typeof window !== "undefined") {
+      const interval = setInterval(() => {
+        const now = new Date();
+        setCurrentTime(`${now.getHours()}시 ${now.getMinutes()}분`);
+      }, 1000);
+      return () => clearInterval(interval);
+    }
   }, []);
 
   useEffect(() => {
@@ -416,7 +422,7 @@ export const AirQualityControlSection = (): JSX.Element => {
                             onClick={() => {
                               if (selectedHour && selectedMinute) {
                                 const newMinutes = parseTimeStringToMinutes(`${selectedHour}:${selectedMinute}`);
-                                sendControlSignal(setting.key, newMinutes);
+                                sendControlSignal(setting.key, Boolean(newMinutes));
                               }
                             }}
                           >
