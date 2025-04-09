@@ -70,12 +70,12 @@ def on_control(data):
         global purifier_speed
         global purifier_is_on
         purifier_is_on = state
-        fan1.set_speed(purifier_speed if purifier_is_on else 0)
-        fan2.set_speed(purifier_speed if purifier_is_on else 0)
+        # fan1.set_speed(purifier_speed if purifier_is_on else 0)
+        # fan2.set_speed(purifier_speed if purifier_is_on else 0)
     elif device == "purifierSpeed":
         purifier_speed = state
-        fan1.set_speed(purifier_speed)
-        fan2.set_speed(purifier_speed)
+        # fan1.set_speed(purifier_speed)
+        # fan2.set_speed(purifier_speed)
     elif device == "purifierAutoOn":
         global purifier_auto_on
         purifier_auto_on = state
@@ -99,8 +99,16 @@ def on_control(data):
     elif device == "getStatus":
         sio.emit("device_status", get_current_status())
     elif device == "isDiffuserOn":
-        global diffuser_is_on
+        global diffuser_is_on, diffuser_last_time, diffuser_active
         diffuser_is_on = state
+        if state:
+            diffuser_last_time = 0  # 디퓨저 상태 초기화
+        else:
+            # 디퓨저 바로 종료 처리
+            diffuser_active = False
+            fan2.set_speed(0)
+            ultrasonic1.turn_off()
+            ultrasonic2.turn_off()
     elif device == "diffuserSpeed":
         global diffuser_speed
         diffuser_speed = state
@@ -197,29 +205,27 @@ def send_sensor_loop():
     while True:
         global purifier_is_on
         current_time = time.time()
-        if purifier_mode == 0:
-            now = time.localtime()
-            now_str = f"{now.tm_hour:02d}:{now.tm_min:02d}"
-            current_minutes = hhmm_to_minutes(now_str)
-
-            if purifier_auto_on <= current_minutes < purifier_auto_off:
-                if not purifier_is_on:
-                    print("🕒 자동모드: 공기청정기 자동 켜짐")
-                    # purifier_is_on = True
-                    fan1.set_speed(purifier_speed)
-                    fan2.set_speed(purifier_speed)
-            else:
-                if purifier_is_on:
-                    print("🕒 자동모드: 공기청정기 자동 꺼짐")
-                    # purifier_is_on = False
-                    fan1.set_speed(0)
-                    fan2.set_speed(0)
+        now = time.localtime()
+        now_str = f"{now.tm_hour:02d}:{now.tm_min:02d}"
+        current_minutes = hhmm_to_minutes(now_str)
 
         data = collect_sensor_data()
 
+        if purifier_mode == 1:
+            # AI 모드에서는 제어하지 않음 (외부 predictor가 담당)
+            pass
+        elif purifier_is_on:
+            # 수동 제어 켜짐 상태일 때만 시간 자동 동작
+            if purifier_auto_on <= current_minutes < purifier_auto_off:
+                fan1.set_speed(purifier_speed)
+            else:
+                fan1.set_speed(0)
+        else:
+            # 수동 제어 꺼짐 상태일 때는 팬 끔
+            fan1.set_speed(0)
+
         if diffuser_is_on:
             if not diffuser_active and (current_time - diffuser_last_time >= diffuser_period):
-                print("💨 디퓨저 동작 시작")
                 diffuser_active = True
                 diffuser_last_time = current_time
                 fan2.set_speed(diffuser_speed)
@@ -227,14 +233,12 @@ def send_sensor_loop():
                     ultrasonic1.turn_on()
                 else:
                     ultrasonic2.turn_on()
-            elif diffuser_active and (current_time - diffuser_last_time >= 10):
-                print("💨 디퓨저 정지 및 휴식 시작")
+            elif diffuser_active and (current_time - diffuser_last_time >= 10): # 디퓨저는 5초동안 발화
                 diffuser_active = False
                 fan2.set_speed(0)
                 ultrasonic1.turn_off()
                 ultrasonic2.turn_off()
 
-        # print("📤 Sending sensor data...")
         sio.emit("sensor_data", data)
         time.sleep(2)
 
