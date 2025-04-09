@@ -422,7 +422,7 @@ export const AirQualityControlSection = (): React.JSX.Element => {
                             onClick={() => {
                               if (selectedHour && selectedMinute) {
                                 const newMinutes = parseTimeStringToMinutes(`${selectedHour}:${selectedMinute}`);
-                                sendControlSignal(setting.key, Boolean(newMinutes));
+                                sendControlSignal(setting.key, Number(newMinutes));
                               }
                             }}
                           >
