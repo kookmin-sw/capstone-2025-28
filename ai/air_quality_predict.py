@@ -19,13 +19,14 @@ from sklearn.metrics import r2_score
 import sys
 import os
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "hardware")))
+
+from actuators.ultrasonic import UltrasonocController
 from sensors.mq135 import MQ135Sensor
 from sensors.mq7 import MQ7Sensor
 from sensors.mq4 import MQ4Sensor
 from sensors.ens import ENSSensor
 from sensors.gp2y import GP2YSensor
 from actuators.fan import FanController
-from actuators.ultrasonic import UltrasonocController
 
 # 센서 초기화
 mq135 = MQ135Sensor()
@@ -37,6 +38,9 @@ fan1 = FanController(pin=19)
 fan2 = FanController(pin=13)
 ultrasonic1 = UltrasonocController(pin=6)
 ultrasonic2 = UltrasonocController(pin=5)
+time.sleep(0.1)
+ultrasonic1.turn_off()
+ultrasonic2.turn_off()
 
 # 데이터 저장용 파일
 DATA_FILE = "air_quality_data.csv"
@@ -73,15 +77,15 @@ def collect_data(interval=3):
         mq4_data = mq4.get_data() or {}
         
         record = {
-            "temperature": ens_data.get("temp"),
-            "humidity": ens_data.get("humidity"),
-            "tvoc": ens_data.get("tvoc"),
-            "eco2": ens_data.get("eco2"),
-            "pm2.5": gp2y_data.get("pm25_filtered"),
-            "mq4": mq4_data.get("mq4_raw"),
-            "mq7": mq7_data.get("mq7_raw"),
-            "mq135": mq135_data.get("mq135_raw"),
-            "air_quality": max(1, ens_data.get("air_quality")),
+            "temperature": ens_data.get("temp") or 0,
+            "humidity": ens_data.get("humidity") or 0,
+            "tvoc": ens_data.get("tvoc") or 0,
+            "eco2": ens_data.get("eco2") or 0,
+            "pm2.5": gp2y_data.get("pm25_filtered") or 0,
+            "mq4": mq4_data.get("mq4_raw") or 0,
+            "mq7": mq7_data.get("mq7_raw") or 0,
+            "mq135": mq135_data.get("mq135_raw") or 0,
+            "air_quality": max(1, ens_data.get("air_quality") or 1),
         }
 
         smell_level = None
