@@ -198,7 +198,7 @@ motion = MotionSensor(sensitivity=800, decay_rate=0.05, cooldown_time=0)
 fan1 = FanController(pin=19)
 fan2 = FanController(pin=13)
 ultrasonic1 = UltrasonocController(pin=6)
-ultrasonic2 = UltrasonocController(pin=5)
+ultrasonic2 = UltrasonocController(pin=12)
 
 def send_sensor_loop():
     global diffuser_active, diffuser_last_time, diffuser_is_on, diffuser_period, diffuser_type, diffuser_speed
@@ -229,7 +229,7 @@ def send_sensor_loop():
                 diffuser_active = True
                 diffuser_last_time = current_time
                 fan2.set_speed(diffuser_speed)
-                if diffuser_type == 0:
+                if diffuser_type == 1:
                     ultrasonic1.turn_on()
                 else:
                     ultrasonic2.turn_on()
