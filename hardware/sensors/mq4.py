@@ -3,11 +3,15 @@ import busio
 import digitalio
 import adafruit_mcp3xxx.mcp3008 as MCP
 from adafruit_mcp3xxx.analog_in import AnalogIn
+from dotenv import load_dotenv
+import os
+
+load_dotenv()
 
 class MQ4Sensor:
     RL = 10  # 부하 저항 (10KΩ)
-    VCC = 5.0  # 센서 공급 전압 (5V)
-    R0 = 21.6  # 캘리브레이션된 R0 값
+    VCC = 3.3  # 수정! 센서 공급 전압 (MCP3008 기준 3.3V)
+    R0 = float(os.getenv('MQ4_R0'))
 
     def __init__(self):
         try:
@@ -26,8 +30,11 @@ class MQ4Sensor:
             raw_value = self.mq4.value
             voltage = self.mq4.voltage
 
-            # Rs 계산
-            Rs = ((self.VCC * self.RL) / voltage) - self.RL
+            # Rs 계산 (0V 예외처리 추가)
+            if voltage == 0:
+                Rs = float('inf')
+            else:
+                Rs = ((self.VCC * self.RL) / voltage) - self.RL
 
             # 메탄 변환 공식
             methane_ppm = 150 * (Rs / self.R0) ** -1.45
