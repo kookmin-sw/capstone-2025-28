@@ -12,9 +12,14 @@ import time
 import socketio
 import random
 import cv2
-import subprocess
 from dotenv import load_dotenv
 import os
+import sys
+
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+
+from ai import predict_func
+
 
 load_dotenv()
 
@@ -24,7 +29,6 @@ last_motion_time = 0
 purifier_mode = 0
 purifier_speed = 2
 purifier_is_on = False
-predictor_process = None
 
 diffuser_is_on = False
 diffuser_speed = 1
@@ -33,6 +37,9 @@ diffuser_type = 1
 diffuser_mode = 0
 diffuser_last_time = 0
 diffuser_active = False
+
+prediction_thread = None
+latest_prediction = {"predicted_air_quality": None, "current_smell": None, "air_quality_score": 100, "smell_status":"", "aiRecommendation":"","aiRecommendation_code":0}
 
 def minutes_to_hhmm(minutes: int) -> str:
     hours = minutes // 60
@@ -45,6 +52,32 @@ def hhmm_to_minutes(hhmm: str) -> int:
 
 purifier_auto_on = hhmm_to_minutes("00:00")
 purifier_auto_off = hhmm_to_minutes("23:00")
+
+def drive_by_ai(predicted_air_quality, current_smell):
+    global last_diffuser_on_time, diffuser_period
+
+    if predicted_air_quality is None:
+        print("예측값 대기중")
+        fan1.set_speed(0)
+        fan2.set_speed(0)
+        ultrasonic1.turn_off()
+        ultrasonic2.turn_off()
+        return
+
+    now = time.time()
+    best_speed = (predicted_air_quality - 1) / 3 * 4
+    best_speed = max(0, min(4, int(round(best_speed))))
+
+    fan1.set_speed(best_speed) # 공기청정 팬 작동
+
+    if current_smell > 1:
+        diffuser_is_on = True
+        diffuser_last_time = 0  # 디퓨저 상태 초기화
+    else:
+        diffuser_active = False
+        fan2.set_speed(0)
+        ultrasonic1.turn_off()
+        ultrasonic2.turn_off()
 
 @sio.event
 def connect():
@@ -87,19 +120,13 @@ def on_control(data):
         global purifier_auto_off
         purifier_auto_off = state
     elif device == "purifierMode":
-        global purifier_mode, predictor_process
+        global purifier_mode
         purifier_mode = state
         if purifier_mode == 1:
-            if predictor_process is None or predictor_process.poll() is not None:
-                predictor_process = subprocess.Popen(["python3", "../ai/predict_func.py"])
-                print("공기질 예측 프로세스 실행 시작")
-            else:
-                print("공기질 예측 프로세스는 이미 실행 중입니다.")
+            print("공기질 예측 모드 시작")
         else:
-            if predictor_process and predictor_process.poll() is None:
-                predictor_process.terminate()
-                print("🛑 공기질 예측 프로세스 종료됨")
-            predictor_process = None
+            print("공기질 예측 모드 종료")
+            predict_func.stop_prediction = True
     elif device == "getStatus":
         sio.emit("device_status", get_current_status())
     elif device == "isDiffuserOn":
@@ -155,7 +182,7 @@ def collect_sensor_data():
 
     return {
         "device_key": DEVICE_KEY,
-        "air_quality_score": 100, # 승화코드에서 가져와야 함
+        "air_quality_score": latest_prediction.get("air_quality_score"),
         "air_quality": ens_data.get("air_quality", 0),
         "tvoc": ens_data.get("tvoc", 0),
         "eco2": ens_data.get("eco2", 0),
@@ -177,7 +204,7 @@ def collect_sensor_data():
         "mq4_methane_ppm": mq4_data.get("mq4_methane_ppm", 0.0),
 
         "motionDetectedTime": last_motion_time,
-        "aiRecommendation": "지금 환기하면 좋습니다! 2시간 후 미세먼지 증가 예상 됩니다.",
+        "aiRecommendation": latest_prediction.get("aiRecommendation"),
 
         "isPurifierOn": purifier_is_on,
         "purifierSpeed": purifier_speed,
@@ -204,20 +231,34 @@ fan2 = FanController(pin=13)
 ultrasonic1 = UltrasonocController(pin=6)
 ultrasonic2 = UltrasonocController(pin=12)
 
+import threading
+
 def send_sensor_loop():
     global diffuser_active, diffuser_last_time, diffuser_is_on, diffuser_period, diffuser_type, diffuser_speed
+    global prediction_thread
     while True:
         global purifier_is_on
+        global purifier_mode
         current_time = time.time()
         now = time.localtime()
         now_str = f"{now.tm_hour:02d}:{now.tm_min:02d}"
         current_minutes = hhmm_to_minutes(now_str)
 
         data = collect_sensor_data()
+        predict_func.collect_data(data, latest_prediction)
 
         if purifier_mode == 1:
-            # AI 모드에서는 제어하지 않음 (외부 predictor가 담당)
-            pass
+            # AI 모드
+            if prediction_thread is None or not prediction_thread.is_alive():
+                # 예측 중단 플래그 초기화
+                predict_func.stop_prediction = False
+                prediction_thread = threading.Thread(target=predict_func.run_prediction_pipeline, args=(latest_prediction,), daemon=True)
+                prediction_thread.start()
+            # 최신 예측값을 기반으로 팬 및 펌프 설정
+            drive_by_ai(
+                latest_prediction.get("predicted_air_quality"),
+                latest_prediction.get("current_smell")
+            )
         elif purifier_is_on:
             # 수동 제어 켜짐 상태일 때만 시간 자동 동작
             if purifier_auto_on <= current_minutes < purifier_auto_off:
