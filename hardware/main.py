@@ -54,8 +54,9 @@ purifier_auto_on = hhmm_to_minutes("00:00")
 purifier_auto_off = hhmm_to_minutes("23:59")
 
 def drive_by_ai(predicted_air_quality, current_smell):
-    global last_diffuser_on_time, diffuser_period
+    global diffuser_last_time, diffuser_period, diffuser_is_on, diffuser_active
 
+    print(predicted_air_quality, current_smell)
     if predicted_air_quality is None:
         print("예측값 대기중")
         fan1.set_speed(0)
@@ -72,12 +73,9 @@ def drive_by_ai(predicted_air_quality, current_smell):
 
     if current_smell > 1:
         diffuser_is_on = True
-        diffuser_last_time = 0  # 디퓨저 상태 초기화
     else:
         diffuser_active = False
-        fan2.set_speed(0)
-        ultrasonic1.turn_off()
-        ultrasonic2.turn_off()
+        diffuser_is_on = False
 
 @sio.event
 def connect():
@@ -216,7 +214,12 @@ def collect_sensor_data():
         "diffuserSpeed": diffuser_speed,
         "diffuserPeriod": diffuser_period,
         "diffuserType": diffuser_type,
-        "diffuserMode": diffuser_mode
+        "diffuserMode": diffuser_mode,
+
+        "predicted_air_quality": latest_prediction.get("predicted_air_quality"),
+        "current_smell": latest_prediction.get("current_smell"),
+        "smell_status": latest_prediction.get("smell_status"),
+        "aiRecommendation_code": latest_prediction.get("aiRecommendation_code")
     }
 
 # 🔹 센서 및 액추에이터 초기화
@@ -236,6 +239,8 @@ import threading
 def send_sensor_loop():
     global diffuser_active, diffuser_last_time, diffuser_is_on, diffuser_period, diffuser_type, diffuser_speed
     global prediction_thread
+    predict_func.clear_model()
+
     while True:
         global purifier_is_on
         global purifier_mode
@@ -245,6 +250,7 @@ def send_sensor_loop():
         current_minutes = hhmm_to_minutes(now_str)
 
         data = collect_sensor_data()
+        # 냄새, 종합공기질 점수 계산
         predict_func.collect_data(data, latest_prediction)
 
         if purifier_mode == 1:
@@ -278,7 +284,7 @@ def send_sensor_loop():
                     ultrasonic1.turn_on()
                 else:
                     ultrasonic2.turn_on()
-            elif diffuser_active and (current_time - diffuser_last_time >= 10): # 디퓨저는 5초동안 발화
+            elif diffuser_active and (current_time - diffuser_last_time >= 5): # 디퓨저는 5초동안 발화
                 diffuser_active = False
                 fan2.set_speed(0)
                 ultrasonic1.turn_off()

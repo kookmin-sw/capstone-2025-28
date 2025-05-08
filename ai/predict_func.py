@@ -32,7 +32,7 @@ AI_RECOMMENDATION_MAP = {
 stop_prediction = False
 
 # 데이터 저장용 파일
-DATA_FILE = "air_quality_data.csv"
+DATA_FILE = "./air_quality_data.csv"
 AIR_QUALITY_MODEL_FILE = "air_quality_model.keras"
 AIR_QUALITY_SCALER_FILE = "air_quality_scaler.pkl"
 SMELL_MODEL_FILE = "smell_classification_model.pkl"
@@ -43,12 +43,20 @@ prediction_history = []
 real_value_history = []
 prediction_count = 0
 
+def clear_model():
+    if os.path.exists(DATA_FILE):
+        os.remove(DATA_FILE)
+        print("🗑️ 이전 공기질 데이터 초기화 완료!")
+    if os.path.exists(AIR_QUALITY_MODEL_FILE):
+        os.remove(AIR_QUALITY_MODEL_FILE)
+        os.remove(AIR_QUALITY_SCALER_FILE)
+        print("🗑️ 이전 공기질 예측 모델 초기화 완료!")
+
 def collect_data(raw, shared_prediction):
     global sensor_data_list
     if os.path.exists(SMELL_MODEL_FILE):
         class_model, class_scaler = joblib.load(SMELL_MODEL_FILE)
         smell_labels = ["✅ 좋음", "⚠️ 보통", "🚨 나쁨"]
-        print("✅ 냄새 분류 모델 로드 완료")
     else:
         class_model = None
         print("⚠️ 냄새 분류 모델이 없어 냄새 예측을 건너뜁니다")
@@ -199,6 +207,7 @@ def train_regression_model():
 # 추세 분석
 def analyze_trend(real_value_history, prediction_history):
     global previous_trend_messages
+    aiRecommendation = ""
     if len(prediction_history) < 3:
         return
 
@@ -212,27 +221,55 @@ def analyze_trend(real_value_history, prediction_history):
     tvoc_now, tvoc_prev, tvoc_before = latest[0], prev[0], before_prev[0]
     air_quality_now, air_quality_prev, air_quality_before = latest[3], prev[3], before_prev[3]
 
+
+    # 추이 기반 메세지
     # eco2 증가/감소
     if eco2_now > eco2_prev > eco2_before:
-        messages.append("⬆️ 이산화탄소 농도가 계속 증가하고 있어요. 환기가 필요합니다.")
+        code = 9
+        messages.append(AI_RECOMMENDATION_MAP.get(code, "알 수 없는 상태입니다."))
 
     # tvoc 급격한 상승/하락
     if tvoc_prev != 0 and tvoc_before != 0:
         tvoc_increase_rate = (tvoc_now - tvoc_before) / tvoc_before
 
         if tvoc_increase_rate >= 0.3:
-            messages.append(f"⚠️ TVOC 농도가 30% 이상 급증했습니다! 현재 수치: {tvoc_now:.2f}")
+            messages.append(f"AI 분석: TVOC 농도가 30% 이상 급증했습니다! 현재 수치: {tvoc_now:.2f}")
 
     # 공기질 점수 추세
     if air_quality_now < air_quality_prev < air_quality_before:
-        messages.append("⚠️ 공기질이 점점 나빠지고 있습니다.")
+        code = 8
+        messages.append(AI_RECOMMENDATION_MAP.get(code, "알 수 없는 상태입니다."))
+
+
+    predicted_tvoc = prediction_history[-1][0]
+    predicted_eco2 = prediction_history[-1][1]
+    predicted_pm25 = prediction_history[-1][2]
+    predicted_air_quality = prediction_history[-1][3]
+    # 현재 상태 기반 메세지
+    if predicted_air_quality < 70:
+        code = 2
+        messages.append(AI_RECOMMENDATION_MAP.get(code, "알 수 없는 상태입니다."))
+    elif predicted_tvoc > 100:
+        code = 1
+    elif predicted_pm25 > 35:
+        code = 4
+    elif predicted_eco2 > 500:
+        code = 5
+    elif current_smell >= 2:
+        code = 3
+    else:
+        code = 0
+
+        # shared_prediction["aiRecommendation_code"] = code
 
     for msg in messages:
         if msg not in previous_trend_messages:
+            aiRecommendation += msg
+            aiRecommendation +="\n"
             print(msg)
-            print()
-
     previous_trend_messages = messages
+    return aiRecommendation
+
 
 def predict_air_quality(shared_prediction):
     global sensor_data_list
@@ -278,24 +315,6 @@ def predict_air_quality(shared_prediction):
 
             current_smell = merged_input[-1]
 
-            # 추천 코드 결정 로직
-            if predicted_air_quality < 50:
-                code = 2
-            elif predicted_tvoc > 800:
-                code = 1
-            elif predicted_pm25 > 35:
-                code = 4
-            elif predicted_eco2 > 800:
-                code = 5
-            elif current_smell >= 2:
-                code = 3
-            else:
-                code = 0
-
-            # 매핑된 메시지 적용
-            shared_prediction["aiRecommendation_code"] = code
-            shared_prediction["aiRecommendation"] = AI_RECOMMENDATION_MAP.get(code, "알 수 없는 상태입니다.")
-
             # Update shared prediction dictionary
             shared_prediction["predicted_air_quality"] = predicted_air_quality
             shared_prediction["current_smell"] = int(current_smell)
@@ -337,20 +356,12 @@ def predict_air_quality(shared_prediction):
 
                 prediction_count = 0  # 리셋
 
-            analyze_trend(real_value_history, prediction_history)
+            shared_prediction["aiRecommendation"] = analyze_trend(real_value_history, prediction_history)
 
 
 def run_prediction_pipeline(shared_prediction):
     global stop_prediction
-    # train_regression_model()
+    train_regression_model()
     while not stop_prediction:
-        # if os.path.exists(DATA_FILE):
-        #     os.remove(DATA_FILE)
-        #     print("🗑️ 이전 공기질 데이터 초기화 완료!")
-        # if os.path.exists(AIR_QUALITY_MODEL_FILE):
-        #     os.remove(AIR_QUALITY_MODEL_FILE)
-        #     os.remove(AIR_QUALITY_SCALER_FILE)
-        #     print("🗑️ 이전 공기질 예측 모델 초기화 완료!")
-        # collect_data(sensor_data_list, shared_prediction)
         predict_air_quality(shared_prediction)
         time.sleep(3)
