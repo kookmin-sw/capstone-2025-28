@@ -51,7 +51,7 @@ def hhmm_to_minutes(hhmm: str) -> int:
     return hours * 60 + minutes
 
 purifier_auto_on = hhmm_to_minutes("00:00")
-purifier_auto_off = hhmm_to_minutes("23:00")
+purifier_auto_off = hhmm_to_minutes("23:59")
 
 def drive_by_ai(predicted_air_quality, current_smell):
     global last_diffuser_on_time, diffuser_period

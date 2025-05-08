@@ -14,6 +14,20 @@ from sklearn.metrics import r2_score
 
 import os
 
+AI_RECOMMENDATION_MAP = {
+    0: "약 3초 뒤에도 공기질이 양호할 것으로 예상됩니다. 쾌적한 환경입니다.",
+    1: "약 3초 뒤 TVOC 농도가 급증할 것으로 예상됩니다. 환기 권장!",
+    2: "약 3초 뒤 공기질이 나빠질 것으로 예상됩니다. 선제 조치를 권장합니다.",
+    3: "냄새 수준이 나쁨으로 평가됐습니다. 디퓨저 작동을 추천합니다.",
+    4: "약 3초 뒤 미세먼지가 상승할 것으로 예측됩니다. 공기청정기 강화를 추천합니다.",
+    5: "약 3초 뒤 이산화탄소 농도가 높아질 것으로 보입니다. 환기 권장!",
+    6: "디퓨저 작동 중이며, 향기 확산이 완료되었습니다. 디퓨저 종료 권장.",
+    7: "AI 분석 대기 중: 데이터가 충분하지 않아 예측을 보류하고 있습니다.",
+    8: "AI 분석: 최근 공기질이 계속 나빠지고 있습니다. 주의가 필요합니다.",
+    9: "AI 분석: 이산화탄소 농도가 계속 상승 중입니다. 환기를 고려하세요.",
+    10: "AI 최적화 모드에 AI 최적화 모드에 진입했습니다. 성능 향상을 시도 중입니다."
+}
+
 # 예측 루프 중단 플래그
 stop_prediction = False
 
@@ -264,11 +278,27 @@ def predict_air_quality(shared_prediction):
 
             current_smell = merged_input[-1]
 
+            # 추천 코드 결정 로직
+            if predicted_air_quality < 50:
+                code = 2
+            elif predicted_tvoc > 800:
+                code = 1
+            elif predicted_pm25 > 35:
+                code = 4
+            elif predicted_eco2 > 800:
+                code = 5
+            elif current_smell >= 2:
+                code = 3
+            else:
+                code = 0
+
+            # 매핑된 메시지 적용
+            shared_prediction["aiRecommendation_code"] = code
+            shared_prediction["aiRecommendation"] = AI_RECOMMENDATION_MAP.get(code, "알 수 없는 상태입니다.")
+
             # Update shared prediction dictionary
             shared_prediction["predicted_air_quality"] = predicted_air_quality
             shared_prediction["current_smell"] = int(current_smell)
-            shared_prediction["aiRecommendation"] = ""
-            shared_prediction["aiRecommendation_code"] = 1
 
 
             # 예측값/실제값 저장
