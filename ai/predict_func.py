@@ -32,10 +32,12 @@ AI_RECOMMENDATION_MAP = {
 stop_prediction = False
 
 # 데이터 저장용 파일
-DATA_FILE = "./air_quality_data.csv"
-AIR_QUALITY_MODEL_FILE = "air_quality_model.keras"
-AIR_QUALITY_SCALER_FILE = "air_quality_scaler.pkl"
-SMELL_MODEL_FILE = "smell_classification_model.pkl"
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+DATA_FILE = os.path.join(BASE_DIR, "air_quality_data.csv")
+AIR_QUALITY_MODEL_FILE = os.path.join(BASE_DIR, "air_quality_model.keras")
+AIR_QUALITY_SCALER_FILE = os.path.join(BASE_DIR, "air_quality_scaler.pkl")
+SMELL_MODEL_FILE = os.path.join(BASE_DIR, "smell_classification_model.pkl")
+print(DATA_FILE)
 
 previous_trend_messages = []
 sensor_data_list = []

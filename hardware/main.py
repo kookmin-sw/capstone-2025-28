@@ -3,6 +3,7 @@ from sensors.gp2y import GP2YSensor
 from sensors.mq135 import MQ135Sensor
 from sensors.mq7 import MQ7Sensor
 from sensors.mq4 import MQ4Sensor
+from sensors.dht22 import DHT22Sensor
 
 from actuators.motion_detect import MotionSensor
 from actuators.fan import FanController
@@ -170,6 +171,7 @@ def get_current_status():
 def collect_sensor_data():
     global last_motion_time
     ens_data = ens.get_data() or {}
+    dht22_data  = dht22.get_data() or {}
     gp2y_data = gp2y.get_data() or {}
     mq135_data = mq135.get_data() or {}
     mq7_data = mq7.get_data() or {}
@@ -184,8 +186,8 @@ def collect_sensor_data():
         "air_quality": ens_data.get("air_quality", 0),
         "tvoc": ens_data.get("tvoc", 0),
         "eco2": ens_data.get("eco2", 0),
-        "temp": ens_data.get("temp", 0.0),
-        "humidity": ens_data.get("humidity", 0.0),
+        "temp": dht22_data.get("temp", 0.0),
+        "humidity": dht22_data.get("humidity", 0.0),
 
         "adc_raw": gp2y_data.get("adc_raw", 0),
         "pm25_raw": gp2y_data.get("pm25_raw", 0.0),
@@ -227,6 +229,7 @@ mq135 = MQ135Sensor()
 mq7 = MQ7Sensor()
 mq4 = MQ4Sensor()
 ens = ENSSensor()
+dht22 = DHT22Sensor()
 gp2y = GP2YSensor()
 motion = MotionSensor(sensitivity=800, decay_rate=0.05, cooldown_time=0)
 fan1 = FanController(pin=19)
