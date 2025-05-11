@@ -1,6 +1,6 @@
 "use client"
 import { Brush, CloudSunIcon, SmileIcon, SunIcon } from "lucide-react";
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { AreaChart, CartesianGrid, XAxis, Area } from "recharts";
 import { Dialog, DialogContent, DialogTrigger, DialogTitle, DialogDescription } from "@/components/ui/dialog";
@@ -42,6 +42,7 @@ export const AirQualityControlSection = (): React.JSX.Element => {
   const [isLiveViewOpen, setIsLiveViewOpen] = useState(false);
   const [selectedHour, setSelectedHour] = useState<string | null>(null);
   const [selectedMinute, setSelectedMinute] = useState<string | null>(null);
+  const [hasMounted, setHasMounted] = useState(false);
   
   const {
     air_quality_score,
@@ -70,10 +71,13 @@ export const AirQualityControlSection = (): React.JSX.Element => {
     fetchWebcamImage,
     sendControlSignal,
     registerDashboard,
-    currentDeviceKey
+    currentDeviceKey,
+    smell_status,
   } = useSocketStore();
   const [chartHistory, setChartHistory] = useState<Record<string, any[]>>({});
   const [chartData, setChartData] = useState<any[]>([]);
+  // Add chartDataRef to keep data in sync with setInterval
+  const chartDataRef = useRef<any[]>([]);
   const chartConfig = {
     air_quality_score: {
       label: "Air Quality",
@@ -108,13 +112,12 @@ export const AirQualityControlSection = (): React.JSX.Element => {
   const [currentTime, setCurrentTime] = useState<string | null>(null);
   
   useEffect(() => {
-    if (typeof window !== "undefined") {
-      const interval = setInterval(() => {
-        const now = new Date();
-        setCurrentTime(`${now.getHours()}시 ${now.getMinutes()}분`);
-      }, 1000);
-      return () => clearInterval(interval);
-    }
+    setHasMounted(true);
+    const interval = setInterval(() => {
+      const now = new Date();
+      setCurrentTime(`${now.getHours()}시 ${now.getMinutes()}분`);
+    }, 1000);
+    return () => clearInterval(interval);
   }, []);
 
   useEffect(() => {
@@ -131,26 +134,19 @@ export const AirQualityControlSection = (): React.JSX.Element => {
         mq4_methane_ppm,
       };
 
-      setChartData((prev) => {
-        const updated = [...prev, newData];
-        if (updated.length > 60) updated.shift();
+      const updated = [...chartDataRef.current, newData];
+      if (updated.length > 60) updated.shift();
 
-        setChartHistory((prevHistory) => {
-          const deviceKey = currentDeviceKey;
-          const prevDeviceData = prevHistory[deviceKey] || [];
-          const newDeviceData = [...prevDeviceData, newData];
-          if (newDeviceData.length > 60) newDeviceData.shift();
-          return {
-            ...prevHistory,
-            [deviceKey]: newDeviceData,
-          };
-        });
-
-        return updated;
-      });
+      chartDataRef.current = updated;
+      setChartData(updated);
     }, 1000);
     return () => clearInterval(interval);
-  }, [air_quality_score, pm25_filtered, tvoc, eco2, mq135_co2_ppm, mq7_co_ppm, mq4_methane_ppm, currentDeviceKey]);
+  }, [air_quality_score, pm25_filtered, tvoc, eco2, mq135_co2_ppm, mq7_co_ppm, mq4_methane_ppm]);
+
+  // Update socket store when chartData changes
+  useEffect(() => {
+    useSocketStore.getState().setChartData(chartData);
+  }, [chartData]);
   
   useEffect(() => {
     if (isLiveViewOpen) {
@@ -354,7 +350,11 @@ export const AirQualityControlSection = (): React.JSX.Element => {
 
             <div className="w-fit font-normal text-transparent text-base whitespace-nowrap rotate-180 [font-family:'Lato',Helvetica] tracking-[0] leading-normal">
               <span className="text-white">움직임 감지: </span>
-              <span className="font-bold text-[#ffa500]">{Math.floor((Date.now() / 1000 - motionDetectedTime))}초전</span>
+              <span className="font-bold text-[#ffa500]">
+                {Math.floor(Date.now() / 1000 - motionDetectedTime) > 10000
+                  ? "최근 감지 안됨"
+                  : `${Math.floor(Date.now() / 1000 - motionDetectedTime)}초전`}
+              </span>
             </div>
           </div>
 
@@ -573,16 +573,16 @@ export const AirQualityControlSection = (): React.JSX.Element => {
 
               <div className="inline-flex flex-col items-center justify-center gap-2">
                 <div className="w-fit mt-[-1.00px] rotate-180 [font-family:'Lato',Helvetica] font-light text-neutral-75 text-sm tracking-[0] leading-normal">
-                  VOC
+                  냄새강도
                 </div>
 
                 <div className="inline-flex items-center justify-end gap-0.5">
                   <div className="w-fit rotate-180 [font-family:'Lato',Helvetica] font-semibold text-neutral-100 text-2xl tracking-[0] leading-normal">
-                    ppb
+                    
                   </div>
 
                   <div className="w-fit mt-[-1.00px] rotate-180 [font-family:'Lato',Helvetica] font-semibold text-neutral-100 text-4xl tracking-[0] leading-normal whitespace-nowrap">
-                    {tvoc}
+                    {smell_status}
                   </div>
                 </div>
               </div>
@@ -673,7 +673,7 @@ export const AirQualityControlSection = (): React.JSX.Element => {
                   <SmileIcon className="w-6 h-6 ml-[-3.67px] rotate-180" />
                   <div className="self-stretch w-full mt-[-1.00px] font-semibold text-transparent text-lg overflow-hidden text-ellipsis [display:-webkit-box] [-webkit-line-clamp:7] [-webkit-box-orient:vertical] rotate-180 [font-family:'Lato',Helvetica] tracking-[0] leading-normal">
                     <span className="text-white">현재 시각</span>
-                    <span className="text-[#ffa500]"> {currentTime}</span>
+                    <span className="text-[#ffa500]"> {hasMounted && currentTime}</span>
                     <span className="text-white">, 바깥 기온은 </span>
                     <span className="text-[#ffa500]">{temp}도</span>
                     <span className="text-white">
@@ -683,7 +683,7 @@ export const AirQualityControlSection = (): React.JSX.Element => {
                       미세먼지는{" "}
                     </span>
                     <span className="text-[#ffa500]">보통</span>
-                    <span className="text-white">입니다. <br/><br/>추천 기능이 있는대로 알려드릴게요.</span>
+                    <span className="text-white">입니다. <br/><br/> {aiRecommendation}  </span>
                   </div>
                 </div>
 

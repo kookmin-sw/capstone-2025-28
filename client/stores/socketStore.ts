@@ -50,6 +50,8 @@ interface SocketState {
     sendControlSignal: (device: string, state: boolean | number) => void;
     registerDashboard: (device_key: string) => void;
     resetSensorData: () => void;
+    chartData: any[];
+    setChartData: (data: any[]) => void;
 }
 
 // Zustand 상태 관리
@@ -85,6 +87,7 @@ export const useSocketStore = create<SocketState>((set) => ({
   diffuserMode: 0,
 
   currentDeviceKey: "",
+  smell_status: "",
   resetSensorData: () =>
     set(() => ({
       air_quality_score: 0,
@@ -115,6 +118,7 @@ export const useSocketStore = create<SocketState>((set) => ({
       diffuserMode: 0,
       aiRecommendation: "",
       webcamImage: null,
+      smell_status: "측정중",
     })),
 
   updateData: (data) => set((state) => ({ ...state, ...data })),
@@ -134,6 +138,9 @@ export const useSocketStore = create<SocketState>((set) => ({
   webcamImage: null,
 
   setWebcamImage: (image: string | null) => set(() => ({ webcamImage: image })),
+
+  chartData: [],
+  setChartData: (data) => set(() => ({ chartData: data })),
 
   fetchWebcamImage: async () => {
     try {

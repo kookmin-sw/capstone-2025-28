@@ -17,7 +17,7 @@ const LevoitPurifierModel = () => {
   const effectiveDiffuserSpeed = isDiffuserOn ? diffuserSpeed : 0;
   const effectivePurifierSpeed = isPurifierOn ? purifierSpeed : 0;
 
-  const gltf = useGLTF("/levoit_air_purifier.glb", true);
+  const gltf = useGLTF("/air_purifier_v1.glb", true);
 
   const CustomSmoke = () => {
     const particleCount = 200;
@@ -144,26 +144,78 @@ const LevoitPurifierModel = () => {
     );
   };
 
+  // BalloonLabel: 공기청정기/디퓨저 상태에 따라 메시지 표시 + 미세먼지 10 도달 예상 시간
   const BalloonLabel = () => {
-    const spriteRef = useRef<THREE.Sprite>(null);
+    const spriteRef = useRef<THREE.Sprite | null>(null);
+    const isPurifierOn = useSocketStore((state) => state.isPurifierOn);
+    const isDiffuserOn = useSocketStore((state) => state.isDiffuserOn);
+    const chartData = useSocketStore((state) => state.chartData);
+    const textureRef = useRef<THREE.CanvasTexture | null>(null);
 
-    const texture = useMemo(() => {
+    // pm25_filtered 추이로 단순 선형 예측 (초 단위, 최근 60초 데이터 사용)
+    const estimateTimeToReachTarget = (data: any[], target = 10) => {
+      if (!data || data.length < 2) return null;
+      // 최근 60개 데이터 중 pm25_filtered만 추출
+      const filtered = data
+        .map((d) => d?.pm25_filtered)
+        .filter((v) => typeof v === "number");
+      if (filtered.length < 2) return null;
+      const recent = filtered[filtered.length - 1];
+      const past = filtered[0];
+      const deltaValue = recent - past;
+      const deltaTime = filtered.length; // 초 단위 (1초 간격 가정)
+      const slope = deltaValue / deltaTime;
+      if (slope >= 0) return null; // 감소 추세가 아니면 예측 불가
+      const secondsToTarget = (recent - target) / -slope;
+      if (!isFinite(secondsToTarget) || secondsToTarget < 0) return null;
+      return Math.round(secondsToTarget/60);
+    };
+
+    const estimatedTime = estimateTimeToReachTarget(chartData);
+    let message = isPurifierOn
+      ? "공기청정 중입니다."
+      : isDiffuserOn
+      ? "디퓨저 작동 중입니다."
+      : "대기 중입니다.";
+
+    if (isPurifierOn && estimatedTime) {
+      message += `\n약 ${estimatedTime}분 후 미세먼지 농도가
+      좋음 수준이 됩니다.`;
+    }
+    // message += `\n\n약 25초후 미세먼지 10µg/m³ 예상`;
+
+    useEffect(() => {
       const canvas = document.createElement("canvas");
       canvas.width = 256;
       canvas.height = 128;
       const context = canvas.getContext("2d")!;
+      context.clearRect(0, 0, canvas.width, canvas.height);
+
+      // 말풍선 배경
       context.fillStyle = "rgba(0, 0, 0, 0.5)";
       context.strokeStyle = "rgba(0, 0, 0, 0)";
       context.lineWidth = 4;
       context.roundRect(0, 0, canvas.width, canvas.height, 20);
       context.fill();
       context.stroke();
+
+      // 텍스트 (여러 줄)
       context.fillStyle = "#ffffff";
-      context.font = "22px sans-serif";
+      context.font = "18px sans-serif";
       context.textAlign = "center";
-      context.fillText("공기 정화중입니다.", canvas.width / 2, 72);
-      return new THREE.CanvasTexture(canvas);
-    }, []);
+      const lines = message.split("\n");
+      lines.forEach((line, idx) => {
+        context.fillText(line, canvas.width / 2, 50 + idx * 24);
+      });
+
+      const texture = new THREE.CanvasTexture(canvas);
+      textureRef.current = texture;
+
+      if (spriteRef.current) {
+        (spriteRef.current.material as THREE.SpriteMaterial).map = texture;
+        (spriteRef.current.material as THREE.SpriteMaterial).needsUpdate = true;
+      }
+    }, [isPurifierOn, isDiffuserOn, chartData]);
 
     useEffect(() => {
       if (spriteRef.current) {
@@ -176,7 +228,7 @@ const LevoitPurifierModel = () => {
       <sprite
         ref={spriteRef}
         material={new THREE.SpriteMaterial({
-          map: texture,
+          map: textureRef.current,
           transparent: true,
         })}
       />
@@ -187,7 +239,7 @@ const LevoitPurifierModel = () => {
     <>
       <primitive
         object={gltf.scene}
-        scale={2}
+        scale={0.006}
         position={[0, -0.65, 0]}
       />
       {effectiveDiffuserSpeed > 0 && <CustomSmoke />}
