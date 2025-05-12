@@ -13,6 +13,74 @@ export default function Home() {
   const [isMobile, setIsMobile] = React.useState<boolean>(false);
   const { currentDeviceKey } = useSocketStore();
 
+  // Weather info state
+  const [weatherInfo, setWeatherInfo] = React.useState({
+    icon: "bg",
+    temp: null as number | null,
+    description: "",
+    humidity: null as number | null,
+    pm10Level: null as number | null,
+    pm10Description: "",
+    pm25Level: null as number | null,
+    pm25Description: "",
+  });
+
+  // Fetch Seoul weather and AQI
+  React.useEffect(() => {
+    const fetchWeatherAndAQI = async () => {
+      try {
+        const lat = 37.5683;
+        const lon = 126.9778;
+        const weatherKey = process.env.NEXT_PUBLIC_OPENWEATHER_API;
+        const aqiKey = process.env.NEXT_PUBLIC_AIRVISUAL_API;
+
+        const weatherRes = await fetch(
+          `https://api.openweathermap.org/data/2.5/forecast?lat=${lat}&lon=${lon}&appid=${weatherKey}&units=metric`
+        );
+        const weatherData = await weatherRes.json();
+        const icon = weatherData?.list?.[0]?.weather?.[0]?.icon || "01n";
+        const temp = weatherData?.list?.[0]?.main?.temp?.toFixed?.(1) ?? null;
+        const description = weatherData?.list?.[0]?.weather?.[0]?.description ?? "";
+        const humidity = weatherData?.list?.[0]?.main?.humidity ?? null;
+
+        const pollutionRes = await fetch(
+          `http://api.openweathermap.org/data/2.5/air_pollution?lat=${lat}&lon=${lon}&appid=${weatherKey}`
+        );
+        const pollutionJson = await pollutionRes.json();
+        console.log(pollutionJson)
+        const pm10Level = pollutionJson?.list?.[0]?.components?.pm10 ?? null;
+        const pm25Level = pollutionJson?.list?.[0]?.components?.pm10 ?? null;
+        const pm10Description = ["좋음", "보통", "약간 나쁨", "나쁨", "매우 나쁨"][
+          pm10Level <= 20 ? 0 :
+          pm10Level <= 50 ? 1 :
+          pm10Level <= 100 ? 2 :
+          pm10Level <= 200 ? 3 : 4
+        ];
+        const pm25Description = ["좋음", "보통", "약간 나쁨", "나쁨", "매우 나쁨"][
+          pm25Level <= 10 ? 0 :
+          pm25Level <= 25 ? 1 :
+          pm25Level <= 50 ? 2 :
+          pm25Level <= 75 ? 3 : 4
+        ];
+
+        setWeatherInfo({
+          icon,
+          temp,
+          description,
+          humidity,
+          pm10Level,
+          pm10Description: pm10Level !== null ? `${pm10Description} (${pm10Level})` : "",
+          pm25Level,
+          pm25Description: pm25Level !== null ? `${pm25Description} (${pm25Level})` : "",
+        });
+      } catch (err) {
+        console.error("Failed to fetch weather/AQI data", err);
+      }
+    };
+
+    fetchWeatherAndAQI();
+  }, []);
+
   React.useEffect(() => {
     const handleResize = () => {
       setIsMobile(window.innerWidth <= 768);
@@ -27,12 +95,18 @@ export default function Home() {
       className={`flex flex-col w-full ${isMobile ? "min-h-screen" : "h-screen overflow-hidden"} items-start justify-between p-4 md:p-8 lg:p-11 relative rounded-[40px] border-[10px] border-solid border-[#ffffff1a] ${isMobile ? "bg-black [background:linear-gradient(180deg,rgba(0,0,0,0)_0%,rgba(0,0,0,0.5)_90%),url('/img/macbook-pro-14-1.png')] bg-cover bg-[50%_50%]" : "bg-black"}`}
     >
       <div className="absolute top-0 left-0 w-full h-full z-0 pointer-events-auto">
+        <div
+          className="absolute top-0 left-0 w-full h-full z-[-1]"
+          style={{
+            backgroundImage: `url("/img/weather/${weatherInfo.icon}.jpg")`,
+            backgroundSize: "cover",
+            backgroundPosition: "center",
+            backgroundRepeat: "no-repeat",
+            filter: "brightness(0.6) blur(4px)",
+          }}
+        />
         {!isMobile && currentDeviceKey !== "RPI-002" && (
-          <Canvas camera={{ position: [6, 5, 2], fov: 60 }} 
-            style={{
-              background: "linear-gradient(135deg, #0f2027, #203a43, #2c5364)",
-            }}
-          >
+          <Canvas camera={{ position: [6, 5, 2], fov: 60 }}>
             <ambientLight intensity={0.8} />
             <directionalLight position={[2, 3, 6]} />
             <Model3D />
@@ -40,9 +114,7 @@ export default function Home() {
             <OrbitControls target={[0, -2, 0]} />
           </Canvas>
         )}
-        {!isMobile && currentDeviceKey === "RPI-002" && (
-           <Experience /> 
-        )}
+        {!isMobile && currentDeviceKey === "RPI-002" && <Experience />}
       </div>
 
       <div className="relative z-10 w-full flex flex-col grow justify-between pointer-events-none">
@@ -50,7 +122,7 @@ export default function Home() {
           <DigitalTwinStatusSection />
         </div>
         <div className="pointer-events-auto">
-          <AirQualityControlSection />
+          <AirQualityControlSection weatherInfo={weatherInfo} />
         </div>
       </div>
     </main>

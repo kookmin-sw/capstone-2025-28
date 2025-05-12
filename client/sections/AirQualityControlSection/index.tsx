@@ -35,7 +35,22 @@ const formatTimeToHHMM = (minutes: number): string => {
   return `${h}:${m}`;
 };
 
-export const AirQualityControlSection = (): React.JSX.Element => {
+export const AirQualityControlSection = ({
+  weatherInfo,
+}: {
+  weatherInfo: {
+    icon: string;
+    temp: number | null;
+    description: string;
+    humidity: number | null;
+    pm10Level: number | null;
+    pm10Description: string;
+    pm25Level: number | null;
+    pm25Description: string;
+  };
+}): React.JSX.Element => {
+  // Weather info from Home
+  const { icon, temp: outdoorTemp, description, humidity: outdoorHumidity, pm10Level, pm10Description, pm25Level, pm25Description} = weatherInfo;
   // const [isPurifierOn, setIsPurifierOn] = useState(false);
   // const [isDiffuserOn, setIsDiffuserOn] = useState(false);
   const [showCards, setShowCards] = useState(true);
@@ -233,23 +248,42 @@ export const AirQualityControlSection = (): React.JSX.Element => {
         <CardContent className="p-0 flex flex-col gap-6">
           <div className="items-center justify-end px-[3px] py-0 flex w-full">
             <div className="w-fit mt-[-1.00px] font-light text-neutral-75 text-sm rotate-180 [font-family:'Lato',Helvetica] tracking-[0] leading-normal">
-              🚪 지금 환기하면 좋습니다! <br />
-              2시간 후 미세먼지 증가 예상 됩니다.
+              {
+                temp !== 0 && humidity !== 0 && pm25_filtered !== 0 ? (
+                  <>
+                    온도차이: {Math.abs(temp - (outdoorTemp ?? temp)).toFixed(1)}°C,
+                    습도차이: {Math.abs(humidity - (outdoorHumidity ?? humidity)).toFixed(1)}%
+                    <br />
+                    ☁ 초미세먼지 차이: 실내 {pm25_filtered} µg/m³ / 실외 {pm25Description ?? "--"}
+                    <br />
+                    {
+                      pm25_filtered < 30 && (pm25Description?.includes("나쁨") || pm25Description?.includes("매우 나쁨"))
+                        ? "외부 공기가 더 나쁘므로 환기 비추천입니다."
+                        : pm25_filtered > 50 && (pm25Description?.includes("좋음") || pm25Description?.includes("보통"))
+                        ? "외부 공기가 더 좋으니 지금 환기하기 적절합니다."
+                        : "실내외 공기질 차이가 크지 않습니다. 상황에 따라 환기 여부를 결정하세요."
+                    }
+                  </>
+                ) : (
+                  <>디바이스 신호를 기다리는 중입니다... 전원을 확인해주세요.</>
+                )
+              }
             </div>
           </div>
 
           <div className="relative w-full h-[72px]">
             <div className="flex w-full items-center justify-end gap-3 absolute top-3.5 left-0">
-              <SunIcon className="w-6 h-6 ml-[-3.67px] rotate-180" />
+              <img src={`img/icons/01d.svg`} alt="weather icon" className="w-6 h-6 ml-[-3.67px] rotate-180" />
               <div className="relative w-full rotate-180 [font-family:'Lato',Helvetica] font-semibold text-neutral-100 text-lg tracking-[0] leading-normal overflow-hidden text-ellipsis [display:-webkit-box] [-webkit-line-clamp:1] [-webkit-box-orient:vertical]">
               실내&nbsp;&nbsp;:&nbsp;&nbsp;{temp}°C , {humidity}%
               </div>
             </div>
 
             <div className="flex w-full items-center justify-end gap-3 absolute top-12 left-0">
-              <CloudSunIcon className="w-6 h-6 ml-[-3.67px] rotate-180" />
+              <img src={`img/icons/${icon}.svg`} alt="weather icon" className="w-6 h-6 ml-[-3.67px] rotate-180" />
               <div className="relative w-full rotate-180 [font-family:'Lato',Helvetica] font-semibold text-neutral-100 text-lg tracking-[0] leading-normal overflow-hidden text-ellipsis [display:-webkit-box] [-webkit-line-clamp:1] [-webkit-box-orient:vertical]">
-                실외&nbsp;&nbsp;:&nbsp;&nbsp;13°C , 54% , 34CAI
+                실외&nbsp;&nbsp;:&nbsp;&nbsp;
+                {outdoorTemp !== null ? `${outdoorTemp}°C` : "--"} , {outdoorHumidity !== null ? `${outdoorHumidity}%` : "--"} , {pm25Description || "--"}
               </div>
             </div>
           </div>
@@ -675,14 +709,14 @@ export const AirQualityControlSection = (): React.JSX.Element => {
                     <span className="text-white">현재 시각</span>
                     <span className="text-[#ffa500]"> {hasMounted && currentTime}</span>
                     <span className="text-white">, 바깥 기온은 </span>
-                    <span className="text-[#ffa500]">{temp}도</span>
+                    <span className="text-[#ffa500]">{outdoorTemp !== null ? `${outdoorTemp}°C` : "--"}</span>
                     <span className="text-white">
                       {" "}
                       입니다.
                       <br />
-                      미세먼지는{" "}
+                      PM10 농도는{" "}
                     </span>
-                    <span className="text-[#ffa500]">보통</span>
+                    <span className="text-[#ffa500]">{pm10Description || "--"}</span>
                     <span className="text-white">입니다. <br/><br/> {aiRecommendation}  </span>
                   </div>
                 </div>
