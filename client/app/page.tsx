@@ -63,11 +63,39 @@ const LevoitPurifierModel = () => {
   const purifierSpeed = useSocketStore((state) => state.purifierSpeed);
   const isPurifierOn = useSocketStore((state) => state.isPurifierOn);
   const isDiffuserOn = useSocketStore((state) => state.isDiffuserOn);
-  const air_quality_score = useSocketStore((state) => state.air_quality_score);
+  const diffuserPeriod = useSocketStore((state) => state.diffuserPeriod);
   const chartData = useSocketStore((state) => state.chartData);
-  const effectiveDiffuserSpeed = isDiffuserOn ? diffuserSpeed : 0;
   const effectivePurifierSpeed = isPurifierOn ? purifierSpeed : 0;
 
+  // Refs to track diffuser ON time and cycle start
+  const lastDiffuserOnRef = React.useRef<number | null>(null);
+  const cycleStartRef = React.useRef<number | null>(null);
+
+  React.useEffect(() => {
+    if (isDiffuserOn) {
+      lastDiffuserOnRef.current = Date.now();
+      if (!cycleStartRef.current) cycleStartRef.current = Date.now();
+    } else {
+      lastDiffuserOnRef.current = null;
+      cycleStartRef.current = null;
+    }
+  }, [isDiffuserOn]);
+
+  // Calculate effectiveDiffuserSpeed and effectivePurifierSpeed according to diffuser timing pattern
+  const now = Date.now();
+  let effectiveDiffuserSpeed = 0;
+  if (cycleStartRef.current !== null) {
+    const elapsed = (now - cycleStartRef.current) / 1000; // seconds
+    const cycle =
+      diffuserPeriod === 300
+        ? 305
+        : diffuserPeriod === 600
+        ? 605
+        : 905;
+    const inCycle = elapsed % cycle;
+    effectiveDiffuserSpeed = inCycle < 5 ? diffuserSpeed : 0; // diffuser ON first 5s
+  }
+  
   const gltf = useGLTF("/air_purifier_v1.glb", true);
 
   const CustomSmoke = () => {
@@ -134,9 +162,9 @@ const LevoitPurifierModel = () => {
     const positions = useMemo(() => {
       const arr = new Float32Array(particleCount * 3);
       for (let i = 0; i < particleCount; i++) {
-        arr[i * 3] = (Math.random() - 0.5) * 1.5;
-        arr[i * 3 + 1] = Math.random() * 0.2;
-        arr[i * 3 + 2] = (Math.random() - 0.5) * 1.5;
+        arr[i * 3] = (Math.random() - 0.5) * 3.0;
+        arr[i * 3 + 1] = Math.random() * 0.4;
+        arr[i * 3 + 2] = (Math.random() - 0.5) * 3.0;
       }
       return arr;
     }, []);
@@ -173,12 +201,14 @@ const LevoitPurifierModel = () => {
           pos.array[iy] *= pullStrength;
           pos.array[iz] *= pullStrength;
 
-          if (Math.abs(pos.array[ix]) < 0.01 &&
-              Math.abs(pos.array[iy]) < 0.01 &&
-              Math.abs(pos.array[iz]) < 0.01) {
-            pos.array[ix] = (Math.random() - 0.5) * 1.5;
-            pos.array[iy] = Math.random() * 0.2;
-            pos.array[iz] = (Math.random() - 0.5) * 1.5;
+          if (
+            Math.abs(pos.array[ix]) < 0.01 &&
+            Math.abs(pos.array[iy]) < 0.01 &&
+            Math.abs(pos.array[iz]) < 0.01
+          ) {
+            pos.array[ix] = (Math.random() - 0.5) * 3.0;
+            pos.array[iy] = Math.random() * 0.4;
+            pos.array[iz] = (Math.random() - 0.5) * 3.0;
           }
         }
         pos.needsUpdate = true;
@@ -193,13 +223,6 @@ const LevoitPurifierModel = () => {
         position={[0, -0.6, 0]}
       />
     );
-  };
-
-  // Helper function for BalloonLabel message
-  const getStatusMessage = (isPurifierOn: boolean, isDiffuserOn: boolean) => {
-    if (isPurifierOn) return "공기청정 중입니다.";
-    if (isDiffuserOn) return "디퓨저 작동 중입니다.";
-    return "대기 중입니다.";
   };
 
   return (
