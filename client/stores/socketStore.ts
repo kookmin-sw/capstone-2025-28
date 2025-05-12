@@ -44,6 +44,7 @@ interface SocketState {
     diffuserMode: number;
     webcamImage: string | null;
     currentDeviceKey: string;
+    smell_status: string;
     setWebcamImage: (image: string | null) => void;
     fetchWebcamImage: () => Promise<void>;
     updateData: (data: Partial<SocketState>) => void;

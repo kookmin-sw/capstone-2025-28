@@ -9,11 +9,62 @@ import { useSocketStore } from "@/stores/socketStore";
 import { useFrame } from "@react-three/fiber";
 import * as THREE from "three";
 
+export default function Home() {
+  const [isMobile, setIsMobile] = React.useState<boolean>(false);
+  const { currentDeviceKey } = useSocketStore();
+
+  React.useEffect(() => {
+    const handleResize = () => {
+      setIsMobile(window.innerWidth <= 768);
+    };
+    handleResize();
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
+
+  return (
+    <main
+      className={`flex flex-col w-full ${isMobile ? "min-h-screen" : "h-screen overflow-hidden"} items-start justify-between p-4 md:p-8 lg:p-11 relative rounded-[40px] border-[10px] border-solid border-[#ffffff1a] ${isMobile ? "bg-black [background:linear-gradient(180deg,rgba(0,0,0,0)_0%,rgba(0,0,0,0.5)_90%),url('/img/macbook-pro-14-1.png')] bg-cover bg-[50%_50%]" : "bg-black"}`}
+    >
+      <div className="absolute top-0 left-0 w-full h-full z-0 pointer-events-auto">
+        {!isMobile && currentDeviceKey !== "RPI-002" && (
+          <Canvas camera={{ position: [6, 5, 2], fov: 60 }} 
+            style={{
+              background: "linear-gradient(135deg, #0f2027, #203a43, #2c5364)",
+            }}
+          >
+            <ambientLight intensity={0.8} />
+            <directionalLight position={[2, 3, 6]} />
+            <Model3D />
+            <LevoitPurifierModel />
+            <OrbitControls target={[0, -2, 0]} />
+          </Canvas>
+        )}
+        {!isMobile && currentDeviceKey === "RPI-002" && (
+           <Experience /> 
+        )}
+      </div>
+
+      <div className="relative z-10 w-full flex flex-col grow justify-between pointer-events-none">
+        <div className="pointer-events-auto ">
+          <DigitalTwinStatusSection />
+        </div>
+        <div className="pointer-events-auto">
+          <AirQualityControlSection />
+        </div>
+      </div>
+    </main>
+  );
+}
+
+// LevoitPurifierModel
 const LevoitPurifierModel = () => {
   const diffuserSpeed = useSocketStore((state) => state.diffuserSpeed);
   const purifierSpeed = useSocketStore((state) => state.purifierSpeed);
   const isPurifierOn = useSocketStore((state) => state.isPurifierOn);
   const isDiffuserOn = useSocketStore((state) => state.isDiffuserOn);
+  const air_quality_score = useSocketStore((state) => state.air_quality_score);
+  const chartData = useSocketStore((state) => state.chartData);
   const effectiveDiffuserSpeed = isDiffuserOn ? diffuserSpeed : 0;
   const effectivePurifierSpeed = isPurifierOn ? purifierSpeed : 0;
 
@@ -144,95 +195,11 @@ const LevoitPurifierModel = () => {
     );
   };
 
-  // BalloonLabel: 공기청정기/디퓨저 상태에 따라 메시지 표시 + 미세먼지 10 도달 예상 시간
-  const BalloonLabel = () => {
-    const spriteRef = useRef<THREE.Sprite | null>(null);
-    const isPurifierOn = useSocketStore((state) => state.isPurifierOn);
-    const isDiffuserOn = useSocketStore((state) => state.isDiffuserOn);
-    const chartData = useSocketStore((state) => state.chartData);
-    const textureRef = useRef<THREE.CanvasTexture | null>(null);
-
-    // pm25_filtered 추이로 단순 선형 예측 (초 단위, 최근 60초 데이터 사용)
-    const estimateTimeToReachTarget = (data: any[], target = 10) => {
-      if (!data || data.length < 2) return null;
-      // 최근 60개 데이터 중 pm25_filtered만 추출
-      const filtered = data
-        .map((d) => d?.pm25_filtered)
-        .filter((v) => typeof v === "number");
-      if (filtered.length < 2) return null;
-      const recent = filtered[filtered.length - 1];
-      const past = filtered[0];
-      const deltaValue = recent - past;
-      const deltaTime = filtered.length; // 초 단위 (1초 간격 가정)
-      const slope = deltaValue / deltaTime;
-      if (slope >= 0) return null; // 감소 추세가 아니면 예측 불가
-      const secondsToTarget = (recent - target) / -slope;
-      if (!isFinite(secondsToTarget) || secondsToTarget < 0) return null;
-      return Math.round(secondsToTarget/60);
-    };
-
-    const estimatedTime = estimateTimeToReachTarget(chartData);
-    let message = isPurifierOn
-      ? "공기청정 중입니다."
-      : isDiffuserOn
-      ? "디퓨저 작동 중입니다."
-      : "대기 중입니다.";
-
-    if (isPurifierOn && estimatedTime) {
-      message += `\n약 ${estimatedTime}분 후 미세먼지 농도가
-      좋음 수준이 됩니다.`;
-    }
-    // message += `\n\n약 25초후 미세먼지 10µg/m³ 예상`;
-
-    useEffect(() => {
-      const canvas = document.createElement("canvas");
-      canvas.width = 256;
-      canvas.height = 128;
-      const context = canvas.getContext("2d")!;
-      context.clearRect(0, 0, canvas.width, canvas.height);
-
-      // 말풍선 배경
-      context.fillStyle = "rgba(0, 0, 0, 0.5)";
-      context.strokeStyle = "rgba(0, 0, 0, 0)";
-      context.lineWidth = 4;
-      context.roundRect(0, 0, canvas.width, canvas.height, 20);
-      context.fill();
-      context.stroke();
-
-      // 텍스트 (여러 줄)
-      context.fillStyle = "#ffffff";
-      context.font = "18px sans-serif";
-      context.textAlign = "center";
-      const lines = message.split("\n");
-      lines.forEach((line, idx) => {
-        context.fillText(line, canvas.width / 2, 50 + idx * 24);
-      });
-
-      const texture = new THREE.CanvasTexture(canvas);
-      textureRef.current = texture;
-
-      if (spriteRef.current) {
-        (spriteRef.current.material as THREE.SpriteMaterial).map = texture;
-        (spriteRef.current.material as THREE.SpriteMaterial).needsUpdate = true;
-      }
-    }, [isPurifierOn, isDiffuserOn, chartData]);
-
-    useEffect(() => {
-      if (spriteRef.current) {
-        spriteRef.current.position.set(0, 2, 0);
-        spriteRef.current.scale.set(2, 1, 1);
-      }
-    }, []);
-
-    return (
-      <sprite
-        ref={spriteRef}
-        material={new THREE.SpriteMaterial({
-          map: textureRef.current,
-          transparent: true,
-        })}
-      />
-    );
+  // Helper function for BalloonLabel message
+  const getStatusMessage = (isPurifierOn: boolean, isDiffuserOn: boolean) => {
+    if (isPurifierOn) return "공기청정 중입니다.";
+    if (isDiffuserOn) return "디퓨저 작동 중입니다.";
+    return "대기 중입니다.";
   };
 
   return (
@@ -244,66 +211,204 @@ const LevoitPurifierModel = () => {
       />
       {effectiveDiffuserSpeed > 0 && <CustomSmoke />}
       {effectivePurifierSpeed > 0 && <SuctionParticles />}
-      <BalloonLabel />
+      <BalloonLabel isPurifierOn={isPurifierOn} isDiffuserOn={isDiffuserOn} chartData={chartData} />
     </>
   );
 };
 
-export default function Home() {
-  const [isMobile, setIsMobile] = React.useState<boolean>(false);
-  const { currentDeviceKey } = useSocketStore();
+// Model3D
+const Model3D = () => {
+  const gltf = useGLTF("/sample_room3.glb", true);
 
-  React.useEffect(() => {
-    const handleResize = () => {
-      setIsMobile(window.innerWidth <= 768);
-    };
-    handleResize();
-    window.addEventListener("resize", handleResize);
-    return () => window.removeEventListener("resize", handleResize);
-  }, []);
+  // HeatMapOverlay component
+  const HeatMapOverlay = () => {
+    const air_quality_score = useSocketStore((state) => state.air_quality_score);
+    const geometry = useMemo(() => {
+      const geo = new THREE.PlaneGeometry(3.8, 4.2, 60, 60);
+      return geo;
+    }, []);
 
-  const Model3D = () => {
-    const gltf = useGLTF("/sample_room3.glb", true);
-    return <primitive object={gltf.scene} scale={1.5} />;
+    const prevScoreRef = useRef(air_quality_score);
+
+    useFrame(() => {
+      const lerpFactor = 0.05; // smoothing speed
+      prevScoreRef.current += (air_quality_score - prevScoreRef.current) * lerpFactor;
+      const smoothedScore = prevScoreRef.current;
+
+      const center = new THREE.Vector2(0, 0);
+      const maxDist = 1.5;
+
+      const colors = [];
+      for (let i = 0; i < geometry.attributes.position.count; i++) {
+        const x = geometry.attributes.position.getX(i);
+        const z = geometry.attributes.position.getY(i);
+        const dist = new THREE.Vector2(x, z).distanceTo(center);
+        const t = Math.min(dist / maxDist, 1);
+        const easedT = 1 - Math.pow(1 - t, 2);
+        const interpolatedScore = 100 * (1 - easedT) + smoothedScore * easedT;
+
+        const scoreMin = 60;
+        const scoreMax = 100;
+        const clampedScore = Math.max(scoreMin, Math.min(scoreMax, interpolatedScore));
+        const hue = ((clampedScore - scoreMin) / (scoreMax - scoreMin)) * 0.33;
+        const color = new THREE.Color();
+        color.setHSL(hue, 1, 0.5);
+        colors.push(color.r, color.g, color.b);
+      }
+
+      const attr = geometry.getAttribute("color") as THREE.BufferAttribute;
+      if (attr) {
+        attr.copyArray(new Float32Array(colors));
+        attr.needsUpdate = true;
+      } else {
+        geometry.setAttribute("color", new THREE.Float32BufferAttribute(colors, 3));
+      }
+    });
+
+    const material = new THREE.MeshBasicMaterial({
+      vertexColors: true,
+      transparent: true,
+      opacity: 0.6,
+      side: THREE.DoubleSide,
+      depthWrite: false,
+    });
+
+    return (
+      <mesh
+        geometry={geometry}
+        material={material}
+        rotation={[-Math.PI / 2, 0, 0]}
+        position={[0, -1.9, 0]}
+        renderOrder={1}
+      />
+    );
   };
 
   return (
-    <main
-      className={`flex flex-col w-full ${isMobile ? "min-h-screen" : "h-screen overflow-hidden"} items-start justify-between p-4 md:p-8 lg:p-11 relative rounded-[40px] border-[10px] border-solid border-[#ffffff1a] ${isMobile ? "bg-black [background:linear-gradient(180deg,rgba(0,0,0,0)_0%,rgba(0,0,0,0.5)_90%),url('/img/macbook-pro-14-1.png')] bg-cover bg-[50%_50%]" : "bg-black"}`}
-    >
-      <div className="absolute top-0 left-0 w-full h-full z-0 pointer-events-auto">
-        {!isMobile && currentDeviceKey !== "RPI-002" && (
-          <Canvas camera={{ position: [6, 5, 2], fov: 60 }} 
-            style={{
-              background: "linear-gradient(135deg, #0f2027, #203a43, #2c5364)",
-            }}
-          >
-            <ambientLight intensity={0.8} />
-            <directionalLight position={[2, 3, 6]} />
-            <Model3D />
-            <LevoitPurifierModel />
-            <OrbitControls target={[0, -2, 0]} />
-          </Canvas>
-        )}
-        {!isMobile && currentDeviceKey === "RPI-002" && (
-           <Experience /> 
-        )}
-      </div>
-
-      <div className="relative z-10 w-full flex flex-col grow justify-between pointer-events-none">
-        <div className="pointer-events-auto ">
-          <DigitalTwinStatusSection />
-        </div>
-        <div className="pointer-events-auto">
-          <AirQualityControlSection />
-        </div>
-      </div>
-    </main>
+    <>
+      <primitive object={gltf.scene} scale={1.5} />
+      <HeatMapOverlay />
+    </>
   );
-}
+};
+
+const estimateTimeToReachTarget = (data: any[], target = 30) => {
+  if (!data || data.length < 6) return null;
+  const filtered = data
+    .map((d) => d?.pm25_filtered)
+    .filter((v) => typeof v === "number");
+  if (filtered.length < 6) return null;
+
+  // Smoothing the slope calculation and clamping for stability
+  const recentValues = filtered.slice(-12);
+  const diffs = recentValues.slice(1).map((v, i) => v - recentValues[i]);
+
+  const rawSlope = diffs.reduce((a, b) => a + b, 0) / diffs.length;
+
+  if (estimateTimeToReachTarget.slopeRef == null) {
+    estimateTimeToReachTarget.slopeRef = rawSlope;
+  } else {
+    estimateTimeToReachTarget.slopeRef = estimateTimeToReachTarget.slopeRef + (rawSlope - estimateTimeToReachTarget.slopeRef) * 0.1;
+  }
+
+  const slope = Math.max(-1, Math.min(-0.005, estimateTimeToReachTarget.slopeRef));
+  if (slope >= 0) return null;
+
+  const recent = filtered[filtered.length - 1];
+  const secondsToTarget = (recent - target) / -slope;
+  if (!isFinite(secondsToTarget) || secondsToTarget < 0) return null;
+  return Math.round(secondsToTarget / 60);
+};
+estimateTimeToReachTarget.slopeRef = null as number | null;
+
+const drawTextToCanvas = (message: string) => {
+  const canvas = document.createElement("canvas");
+  canvas.width = 256;
+  canvas.height = 128;
+  const context = canvas.getContext("2d")!;
+  context.clearRect(0, 0, canvas.width, canvas.height);
+  context.fillStyle = "rgba(0, 0, 0, 0.5)";
+  context.strokeStyle = "rgba(0, 0, 0, 0)";
+  context.lineWidth = 4;
+  context.roundRect(0, 0, canvas.width, canvas.height, 20);
+  context.fill();
+  context.stroke();
+  context.fillStyle = "#ffffff";
+  context.font = "18px sans-serif";
+  context.textAlign = "center";
+  const lines = message.split("\n");
+  lines.forEach((line, idx) => {
+    context.fillText(line, canvas.width / 2, 50 + idx * 24);
+  });
+  return new THREE.CanvasTexture(canvas);
+};
+
+const BalloonLabel = ({ isPurifierOn, isDiffuserOn, chartData }: { isPurifierOn: boolean; isDiffuserOn: boolean; chartData: any[] }) => {
+  const spriteRef = useRef<THREE.Sprite | null>(null);
+  const textureRef = useRef<THREE.CanvasTexture | null>(null);
+  const prevEstimatedRef = useRef<number | null>(null);
+  const lastUpdateTimeRef = useRef<number>(Date.now());
+
+  useEffect(() => {
+    const drawBalloon = () => {
+      const newEstimatedTime = estimateTimeToReachTarget(chartData);
+      let message = isPurifierOn ? "공기청정 중입니다." : isDiffuserOn ? "디퓨저 작동 중입니다." : "대기 중입니다.";
+
+      const now = Date.now();
+
+      if (
+        isPurifierOn &&
+        newEstimatedTime &&
+        (prevEstimatedRef.current === null ||
+          newEstimatedTime <= prevEstimatedRef.current ||
+          now - lastUpdateTimeRef.current > 60000)
+      ) {
+        message += `\n약 ${newEstimatedTime}분 후 미세먼지 농도가\n좋음 수준이 됩니다.`;
+        if (prevEstimatedRef.current === null) {
+          prevEstimatedRef.current = newEstimatedTime;
+        } else {
+          prevEstimatedRef.current += (newEstimatedTime - prevEstimatedRef.current) * 0.1;
+        }
+        lastUpdateTimeRef.current = now;
+      } else if (isPurifierOn && prevEstimatedRef.current !== null) {
+        const roundedEstimate = Math.round(prevEstimatedRef.current ?? newEstimatedTime);
+        message += `\n약 ${roundedEstimate}분 후 미세먼지 농도가\n좋음 수준이 됩니다.`;
+      }
+
+      const texture = drawTextToCanvas(message);
+      textureRef.current = texture;
+
+      if (spriteRef.current) {
+        (spriteRef.current.material as THREE.SpriteMaterial).map = texture;
+        (spriteRef.current.material as THREE.SpriteMaterial).needsUpdate = true;
+      }
+    };
+
+    drawBalloon(); // Initial render
+
+    const interval = setInterval(drawBalloon, 60000);
+    return () => clearInterval(interval);
+  }, [isPurifierOn, isDiffuserOn, chartData]);
+
+  useEffect(() => {
+    if (spriteRef.current) {
+      spriteRef.current.position.set(0, 2, 0);
+      spriteRef.current.scale.set(2, 1, 1);
+    }
+  }, []);
+
+  return (
+    <sprite
+      ref={spriteRef}
+      material={new THREE.SpriteMaterial({
+        map: textureRef.current,
+        transparent: true,
+      })}
+    />
+  );
+};
 
 [
   "/sample_room3.glb",
-  "/levoit_air_purifier.glb",
-  "/evanescent_smoke.glb",
+  "/air_purifier_v1.glb",
 ].forEach(path => useGLTF.preload(path));
