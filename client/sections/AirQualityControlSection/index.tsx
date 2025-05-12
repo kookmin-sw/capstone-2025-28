@@ -159,7 +159,7 @@ export const AirQualityControlSection = (): React.JSX.Element => {
 
   // Helper functions
   const getSpeedLabel = (speed: number) => {
-    return speed === 1 ? "Low" : speed === 2 ? "Medium" : "High";
+    return speed === 1 ? "Low" : speed === 2 ? "Medium" : speed === 3 ? "High" : "Ultra";
   };
 
   const getTypeLabel = (type: number) => {
@@ -441,7 +441,7 @@ export const AirQualityControlSection = (): React.JSX.Element => {
                           if (setting.key === "purifierMode") {
                             newValue = cycleOption(purifierMode, [0, 1]);
                           } else if (setting.key === "purifierSpeed") {
-                            newValue = cycleOption(purifierSpeed, [1, 2, 3]);
+                            newValue = cycleOption(purifierSpeed, [1, 2, 3, 4]);
                           } else {
                             return;
                           }
@@ -531,9 +531,9 @@ export const AirQualityControlSection = (): React.JSX.Element => {
                       if (setting.key === "diffuserMode") {
                         newValue = cycleOption(diffuserMode, [0, 1]);
                       } else if (setting.key === "diffuserSpeed") {
-                        newValue = cycleOption(diffuserSpeed, [1, 2, 3]);
+                        newValue = cycleOption(diffuserSpeed, [1, 2, 3, 4]);
                       } else if (setting.key === "diffuserType") {
-                        newValue = cycleOption(diffuserType, [1, 2, 3]);
+                        newValue = cycleOption(diffuserType, [1, 2]);
                       } else if (setting.key === "diffuserPeriod") {
                         newValue = cycleOption(diffuserPeriod, [300, 600, 900]);
                       } else {
