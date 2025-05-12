@@ -49,7 +49,7 @@ export default function Home() {
         const pollutionJson = await pollutionRes.json();
         console.log(pollutionJson)
         const pm10Level = pollutionJson?.list?.[0]?.components?.pm10 ?? null;
-        const pm25Level = pollutionJson?.list?.[0]?.components?.pm10 ?? null;
+        const pm25Level = pollutionJson?.list?.[0]?.components?.pm2_5 ?? null;
         const pm10Description = ["좋음", "보통", "약간 나쁨", "나쁨", "매우 나쁨"][
           pm10Level <= 20 ? 0 :
           pm10Level <= 50 ? 1 :
