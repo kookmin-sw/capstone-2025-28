@@ -141,14 +141,20 @@ export default function Home() {
         <div className="pointer-events-auto ">
           <DigitalTwinStatusSection />
         </div>
-        <div
-          className="pointer-events-auto transition-opacity duration-1000"
-          onMouseEnter={() => setHovered(true)}
-          onMouseLeave={() => setHovered(false)}
-          style={{ opacity: showUI ? 1 : 0.2 }}
-        >
-          <AirQualityControlSection weatherInfo={weatherInfo} />
-        </div>
+        {!isMobile ? (
+          <div
+            className="pointer-events-auto transition-opacity duration-1000"
+            onMouseEnter={() => setHovered(true)}
+            onMouseLeave={() => setHovered(false)}
+            style={{ opacity: showUI ? 1 : 0.2 }}
+          >
+            <AirQualityControlSection weatherInfo={weatherInfo} />
+          </div>
+        ) : (
+          <div className="pointer-events-auto">
+            <AirQualityControlSection weatherInfo={weatherInfo} />
+          </div>
+        )}
       </div>
       <GlobalLoadingOverlay />
     </main>

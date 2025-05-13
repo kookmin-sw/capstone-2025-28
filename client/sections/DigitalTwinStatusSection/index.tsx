@@ -85,39 +85,41 @@ export const DigitalTwinStatusSection = () => {
           </SheetContent>
         </Sheet>
         
-        <nav className="flex flex-nowrap items-center justify-center gap-2 px-4 py-2 bg-grey-50 rounded-xl overflow-auto shadow-[0px_7px_5px_#ffffff0d,inset_0px_1px_1px_#ffffff40,inset_0px_1px_1px_#ffffff1a] backdrop-blur-[46px]">
-        {rooms.map((room, index) => (
-          <Button
-            key={room.name}
-            variant={index === activeRoomIndex ? "secondary" : "ghost"}
-            className={`flex items-center gap-2 ${
-              index === activeRoomIndex ? "bg-neutral-50 rounded-lg px-3.5 py-[7px]" : ""
-            }`}
-            onClick={() => {
-              setActiveRoomIndex(index);
-              registerDashboard(room.deviceKey);
-            }}
-          >
-            <span
-              className={`text-neutral-100 text-sm ${index === activeRoomIndex ? "font-semibold" : "font-normal"}`}
-            >
-              {room.name}
-            </span>
-            {room.name === "Dining room" ? (
-              <img
-                className="w-4 h-4"
-                alt={`${room.name} icon`}
-                src={room.icon}
-              />
-            ) : (
-              <div
-                className="w-4 h-4 bg-cover bg-center"
-                style={{ backgroundImage: `url(${room.icon})` }}
-              />
-            )}
-          </Button>
-        ))}
-        </nav>
+        <div className="w-full overflow-x-auto flex justify-start sm:justify-center px-2 sm:px-0">
+          <nav className="flex flex-nowrap items-center justify-start gap-2 py-2 pr-4 pl-2 bg-grey-50 rounded-xl min-w-max sm:w-fit shadow-[0px_7px_5px_#ffffff0d,inset_0px_1px_1px_#ffffff40,inset_0px_1px_1px_#ffffff1a] backdrop-blur-[46px]">
+            {rooms.map((room, index) => (
+              <Button
+                key={room.name}
+                variant={index === activeRoomIndex ? "secondary" : "ghost"}
+                className={`flex items-center gap-2 ${
+                  index === activeRoomIndex ? "bg-neutral-50 rounded-lg px-3.5 py-[7px]" : ""
+                }`}
+                onClick={() => {
+                  setActiveRoomIndex(index);
+                  registerDashboard(room.deviceKey);
+                }}
+              >
+                <span
+                  className={`text-neutral-100 text-sm ${index === activeRoomIndex ? "font-semibold" : "font-normal"}`}
+                >
+                  {room.name}
+                </span>
+                {room.name === "Dining room" ? (
+                  <img
+                    className="w-4 h-4"
+                    alt={`${room.name} icon`}
+                    src={room.icon}
+                  />
+                ) : (
+                  <div
+                    className="w-4 h-4 bg-cover bg-center"
+                    style={{ backgroundImage: `url(${room.icon})` }}
+                  />
+                )}
+              </Button>
+            ))}
+          </nav>
+        </div>
 
         <div className="flex items-center gap-3">
           {/* Notification Popover */}
