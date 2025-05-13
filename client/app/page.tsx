@@ -49,7 +49,7 @@ export default function Home() {
         const lat = 37.5683;
         const lon = 126.9778;
         const weatherKey = process.env.NEXT_PUBLIC_OPENWEATHER_API;
-        const aqiKey = process.env.NEXT_PUBLIC_AIRVISUAL_API;
+        // const aqiKey = process.env.NEXT_PUBLIC_AIRVISUAL_API; // Unused variable removed
 
         const weatherRes = await fetch(
           `https://api.openweathermap.org/data/2.5/forecast?lat=${lat}&lon=${lon}&appid=${weatherKey}&units=metric`
@@ -99,7 +99,7 @@ export default function Home() {
     };
 
     fetchWeatherAndAQI();
-  }, []);
+  }, [setIsSendingCommand]);
 
   React.useEffect(() => {
     const handleResize = () => {
@@ -419,7 +419,8 @@ const Model3D = () => {
   );
 };
 
-const estimateTimeToReachTarget = (data: any[], target = 30) => {
+type ChartDataPoint = { pm25_filtered: number | null | undefined };
+const estimateTimeToReachTarget = (data: ChartDataPoint[], target = 30) => {
   if (!data || data.length < 6) return null;
   const filtered = data
     .map((d) => d?.pm25_filtered)
@@ -470,7 +471,7 @@ const drawTextToCanvas = (message: string) => {
   return new THREE.CanvasTexture(canvas);
 };
 
-const BalloonLabel = ({ isPurifierOn, isDiffuserOn, chartData }: { isPurifierOn: boolean; isDiffuserOn: boolean; chartData: any[] }) => {
+const BalloonLabel = ({ isPurifierOn, isDiffuserOn, chartData }: { isPurifierOn: boolean; isDiffuserOn: boolean; chartData: ChartDataPoint[] }) => {
   const spriteRef = useRef<THREE.Sprite | null>(null);
   const textureRef = useRef<THREE.CanvasTexture | null>(null);
   const prevEstimatedRef = useRef<number | null>(null);
