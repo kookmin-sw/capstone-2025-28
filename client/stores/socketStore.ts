@@ -45,6 +45,7 @@ interface SocketState {
     webcamImage: string | null;
     currentDeviceKey: string;
     smell_status: string;
+    isSendingCommand: boolean;
     setWebcamImage: (image: string | null) => void;
     fetchWebcamImage: () => Promise<void>;
     updateData: (data: Partial<SocketState>) => void;
@@ -53,10 +54,12 @@ interface SocketState {
     resetSensorData: () => void;
     chartData: any[];
     setChartData: (data: any[]) => void;
+    setIsSendingCommand: (value: boolean) => void;
 }
 
 // Zustand 상태 관리
 export const useSocketStore = create<SocketState>((set) => ({
+  setIsSendingCommand: (value: boolean) => set(() => ({ isSendingCommand: value })),
   air_quality_score: 0,
   air_quality: 0,
   tvoc: 0, // 유기화합물
@@ -89,6 +92,7 @@ export const useSocketStore = create<SocketState>((set) => ({
 
   currentDeviceKey: "",
   smell_status: "",
+  isSendingCommand: false,
   resetSensorData: () =>
     set(() => ({
       air_quality_score: 0,
@@ -122,14 +126,22 @@ export const useSocketStore = create<SocketState>((set) => ({
       smell_status: "측정중",
     })),
 
-  updateData: (data) => set((state) => ({ ...state, ...data })),
+  updateData: (data) => set((state) => ({
+    ...state,
+    ...data,
+    isSendingCommand: false,
+  })),
 
   sendControlSignal: (device: string, state: boolean | number) => {
+    set(() => ({ isSendingCommand: true }));
     socket.emit("control", { device, state });
     set((prevState) => ({
       ...prevState,
       [device]: state, // UI에 즉시 반영
     }));
+    setTimeout(() => {
+      set(() => ({ isSendingCommand: false }));
+    }, 2000);
   },
   registerDashboard: (device_key: string) => {
     useSocketStore.getState().resetSensorData();

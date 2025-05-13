@@ -4,6 +4,7 @@ import { Canvas } from "@react-three/fiber";
 import { OrbitControls, useGLTF } from "@react-three/drei";
 import { AirQualityControlSection } from "@/sections/AirQualityControlSection";
 import { DigitalTwinStatusSection } from "@/sections/DigitalTwinStatusSection";
+import { GlobalLoadingOverlay } from "@/components/ui/GlobalLoadingOverlay";
 import Experience from "../Experience/Experience";
 import { useSocketStore } from "@/stores/socketStore";
 import { useFrame } from "@react-three/fiber";
@@ -12,10 +13,12 @@ import * as THREE from "three";
 export default function Home() {
   const [isMobile, setIsMobile] = React.useState<boolean>(false);
   const { currentDeviceKey } = useSocketStore();
+  // 1. Add useSocketStore for setIsSendingCommand
+  const setIsSendingCommand = useSocketStore((state) => state.setIsSendingCommand);
 
   // Weather info state
   const [weatherInfo, setWeatherInfo] = React.useState({
-    icon: "bg",
+    icon: "02d",
     temp: null as number | null,
     description: "",
     humidity: null as number | null,
@@ -27,6 +30,7 @@ export default function Home() {
 
   // Fetch Seoul weather and AQI
   React.useEffect(() => {
+    setIsSendingCommand(true);
     const fetchWeatherAndAQI = async () => {
       try {
         const lat = 37.5683;
@@ -47,7 +51,6 @@ export default function Home() {
           `http://api.openweathermap.org/data/2.5/air_pollution?lat=${lat}&lon=${lon}&appid=${weatherKey}`
         );
         const pollutionJson = await pollutionRes.json();
-        console.log(pollutionJson)
         const pm10Level = pollutionJson?.list?.[0]?.components?.pm10 ?? null;
         const pm25Level = pollutionJson?.list?.[0]?.components?.pm2_5 ?? null;
         const pm10Description = ["좋음", "보통", "약간 나쁨", "나쁨", "매우 나쁨"][
@@ -73,7 +76,11 @@ export default function Home() {
           pm25Level,
           pm25Description: pm25Level !== null ? `${pm25Description} (${pm25Level})` : "",
         });
+        // 3. Set loading false after setting weather info
+        setIsSendingCommand(false);
       } catch (err) {
+        // 4. Set loading false on error
+        setIsSendingCommand(false);
         console.error("Failed to fetch weather/AQI data", err);
       }
     };
@@ -125,6 +132,7 @@ export default function Home() {
           <AirQualityControlSection weatherInfo={weatherInfo} />
         </div>
       </div>
+      <GlobalLoadingOverlay />
     </main>
   );
 }
