@@ -164,9 +164,16 @@ export const AirQualityControlSection = ({
   }, [chartData]);
   
   useEffect(() => {
+    let interval: NodeJS.Timeout | null = null;
+
     if (isLiveViewOpen) {
-      fetchWebcamImage();
+      fetchWebcamImage(); // initial fetch
+      interval = setInterval(fetchWebcamImage, 1000); // fetch every 1s
     }
+
+    return () => {
+      if (interval) clearInterval(interval);
+    };
   }, [isLiveViewOpen]);
 
   // Data for the months in the chart
