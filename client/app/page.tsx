@@ -16,6 +16,19 @@ export default function Home() {
   // 1. Add useSocketStore for setIsSendingCommand
   const setIsSendingCommand = useSocketStore((state) => state.setIsSendingCommand);
 
+  // UI fade and hover state
+  const [showUI, setShowUI] = React.useState(true);
+  const [hovered, setHovered] = React.useState(false);
+
+  React.useEffect(() => {
+    if (!hovered) {
+      const timer = setTimeout(() => setShowUI(false), 10000);
+      return () => clearTimeout(timer);
+    } else {
+      setShowUI(true);
+    }
+  }, [hovered]);
+
   // Weather info state
   const [weatherInfo, setWeatherInfo] = React.useState({
     icon: "02d",
@@ -128,7 +141,12 @@ export default function Home() {
         <div className="pointer-events-auto ">
           <DigitalTwinStatusSection />
         </div>
-        <div className="pointer-events-auto">
+        <div
+          className="pointer-events-auto transition-opacity duration-1000"
+          onMouseEnter={() => setHovered(true)}
+          onMouseLeave={() => setHovered(false)}
+          style={{ opacity: showUI ? 1 : 0.2 }}
+        >
           <AirQualityControlSection weatherInfo={weatherInfo} />
         </div>
       </div>

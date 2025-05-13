@@ -1,5 +1,5 @@
 "use client"
-import { Brush, CloudSunIcon, SmileIcon, SunIcon } from "lucide-react";
+import { Brush, CloudSunIcon, SmileIcon, SunIcon, ChevronDown, ChevronUp } from "lucide-react";
 import React, { useState, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { AreaChart, CartesianGrid, XAxis, Area } from "recharts";
@@ -239,9 +239,9 @@ export const AirQualityControlSection = ({
       <div className="w-full flex justify-center mb-2">
         <button
           onClick={() => setShowCards((prev) => !prev)}
-          className="text-white text-xs bg-slate-700 rounded-full px-2 py-1 hover:bg-slate-600 transition"
+          className="text-white text-xs bg-transparent rounded-full px-2 py-1 hover:bg-slate-600 transition"
         >
-          {showCards ? "↓" : "↑"}
+          {showCards ? <ChevronDown className="w-4 h-4" /> : <ChevronUp className="w-4 h-4" />}
         </button>
       </div>
       <div
