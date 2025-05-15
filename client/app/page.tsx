@@ -191,7 +191,7 @@ export default function Home() {
                 currentDeviceKey === "RPI-002"
                   ? [-6.5, -1.5, 0]
                   : currentDeviceKey === "RPI-003"
-                  ? [-5, -1.5, -0.6]
+                  ? [-5, -1.3, -0.6]
                   : currentDeviceKey === "RPI-004"
                   ? [3.8, -1.05, 0.5]
                   : currentDeviceKey === "RPI-005"
@@ -252,7 +252,148 @@ export default function Home() {
   );
 }
 
-// LevoitPurifierModel
+// CustomSmoke component moved outside, now accepts position prop
+const CustomSmoke = ({
+  position,
+  effectiveDiffuserSpeed,
+}: {
+  position: [number, number, number],
+  effectiveDiffuserSpeed: number,
+}) => {
+  const particleCount = 200;
+  const particlesRef = React.useRef<THREE.Points>(null);
+
+  const positions = useMemo(() => {
+    const arr = new Float32Array(particleCount * 3);
+    for (let i = 0; i < particleCount; i++) {
+      arr[i * 3] = (Math.random() - 0.5) * 0.5;
+      arr[i * 3 + 1] = Math.random() * 1.5;
+      arr[i * 3 + 2] = (Math.random() - 0.5) * 0.5;
+    }
+    return arr;
+  }, []);
+
+  const material = useMemo(() => {
+    const tex = new THREE.TextureLoader().load("/img/smokeparticle.png");
+    return new THREE.PointsMaterial({
+      size: 0.3,
+      map: tex,
+      transparent: true,
+      depthWrite: false,
+      opacity: 0.2,
+      color: "white",
+      blending: THREE.AdditiveBlending,
+    });
+  }, []);
+
+  const geometry = useMemo(() => {
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute("position", new THREE.BufferAttribute(positions, 3));
+    return geo;
+  }, [positions]);
+
+  useFrame(() => {
+    if (particlesRef.current) {
+      const pos = particlesRef.current.geometry.attributes.position;
+      const riseSpeed = 0.005 * effectiveDiffuserSpeed;
+      for (let i = 0; i < particleCount; i++) {
+        pos.array[i * 3 + 1] += riseSpeed;
+        if (pos.array[i * 3 + 1] > 2) {
+          pos.array[i * 3 + 1] = 0;
+        }
+      }
+      pos.needsUpdate = true;
+    }
+  });
+
+  return effectiveDiffuserSpeed > 0 && (
+    <points
+      ref={particlesRef}
+      geometry={geometry}
+      material={material}
+      position={position}
+    />
+  );
+};
+
+// SuctionParticles component moved outside, now accepts position prop
+const SuctionParticles = ({
+  position,
+  effectivePurifierSpeed,
+}: {
+  position: [number, number, number],
+  effectivePurifierSpeed: number,
+}) => {
+  const particleCount = 100;
+  const particlesRef = React.useRef<THREE.Points>(null);
+
+  const positions = useMemo(() => {
+    const arr = new Float32Array(particleCount * 3);
+    for (let i = 0; i < particleCount; i++) {
+      arr[i * 3] = (Math.random() - 0.5) * 3.0;
+      arr[i * 3 + 1] = Math.random() * 0.4;
+      arr[i * 3 + 2] = (Math.random() - 0.5) * 3.0;
+    }
+    return arr;
+  }, []);
+
+  const material = useMemo(() => {
+    const tex = new THREE.TextureLoader().load("/img/smokeparticle.png");
+    return new THREE.PointsMaterial({
+      size: 0.15,
+      map: tex,
+      transparent: true,
+      opacity: 0.9,
+      blending: THREE.AdditiveBlending,
+      depthWrite: false,
+      color: "#00ccff",
+    });
+  }, []);
+
+  const geometry = useMemo(() => {
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute("position", new THREE.BufferAttribute(positions, 3));
+    return geo;
+  }, [positions]);
+
+  useFrame(() => {
+    if (particlesRef.current) {
+      const pos = particlesRef.current.geometry.attributes.position;
+      const pullStrength = 1 - 0.02 * effectivePurifierSpeed;
+      for (let i = 0; i < particleCount; i++) {
+        const ix = i * 3;
+        const iy = ix + 1;
+        const iz = ix + 2;
+
+        pos.array[ix] *= pullStrength;
+        pos.array[iy] *= pullStrength;
+        pos.array[iz] *= pullStrength;
+
+        if (
+          Math.abs(pos.array[ix]) < 0.01 &&
+          Math.abs(pos.array[iy]) < 0.01 &&
+          Math.abs(pos.array[iz]) < 0.01
+        ) {
+          pos.array[ix] = (Math.random() - 0.5) * 3.0;
+          pos.array[iy] = Math.random() * 0.4;
+          pos.array[iz] = (Math.random() - 0.5) * 3.0;
+        }
+      }
+      pos.needsUpdate = true;
+    }
+  });
+
+  return effectivePurifierSpeed > 0 && (
+    <points
+      ref={particlesRef}
+      geometry={geometry}
+      material={material}
+      position={position}
+    />
+  );
+};
+
+// LevoitPurifierModel component
 const LevoitPurifierModel = ({
   position = [0, -0.65, 0],
   scale = 0.006,
@@ -296,135 +437,8 @@ const LevoitPurifierModel = ({
     const inCycle = elapsed % cycle;
     effectiveDiffuserSpeed = inCycle < 5 ? diffuserSpeed : 0; // diffuser ON first 5s
   }
-  
+
   const gltf = useGLTF("/air_purifier_v1.glb", true);
-
-  const CustomSmoke = () => {
-    const particleCount = 200;
-    const particlesRef = useRef<THREE.Points>(null);
-
-    const positions = useMemo(() => {
-      const arr = new Float32Array(particleCount * 3);
-      for (let i = 0; i < particleCount; i++) {
-        arr[i * 3] = (Math.random() - 0.5) * 0.5;
-        arr[i * 3 + 1] = Math.random() * 1.5;
-        arr[i * 3 + 2] = (Math.random() - 0.5) * 0.5;
-      }
-      return arr;
-    }, []);
-
-    const material = useMemo(() => {
-      const tex = new THREE.TextureLoader().load("/img/smokeparticle.png");
-      return new THREE.PointsMaterial({
-        size: 0.3,
-        map: tex,
-        transparent: true,
-        depthWrite: false,
-        opacity: 0.2,
-        color: "white",
-        blending: THREE.AdditiveBlending,
-      });
-    }, []);
-
-    const geometry = useMemo(() => {
-      const geo = new THREE.BufferGeometry();
-      geo.setAttribute("position", new THREE.BufferAttribute(positions, 3));
-      return geo;
-    }, [positions]);
-
-    useFrame(() => {
-      if (particlesRef.current) {
-        const pos = particlesRef.current.geometry.attributes.position;
-        const riseSpeed = 0.005 * effectiveDiffuserSpeed;
-        for (let i = 0; i < particleCount; i++) {
-          pos.array[i * 3 + 1] += riseSpeed;
-          if (pos.array[i * 3 + 1] > 2) {
-            pos.array[i * 3 + 1] = 0;
-          }
-        }
-        pos.needsUpdate = true;
-      }
-    });
-
-    return effectiveDiffuserSpeed > 0 && (
-      <points
-        ref={particlesRef}
-        geometry={geometry}
-        material={material}
-        position={[0, 0.2, 0]}
-      />
-    );
-  };
-
-  const SuctionParticles = () => {
-    const particleCount = 100;
-    const particlesRef = useRef<THREE.Points>(null);
-
-    const positions = useMemo(() => {
-      const arr = new Float32Array(particleCount * 3);
-      for (let i = 0; i < particleCount; i++) {
-        arr[i * 3] = (Math.random() - 0.5) * 3.0;
-        arr[i * 3 + 1] = Math.random() * 0.4;
-        arr[i * 3 + 2] = (Math.random() - 0.5) * 3.0;
-      }
-      return arr;
-    }, []);
-
-    const material = useMemo(() => {
-      const tex = new THREE.TextureLoader().load("/img/smokeparticle.png");
-      return new THREE.PointsMaterial({
-        size: 0.15,
-        map: tex,
-        transparent: true,
-        opacity: 0.9,
-        blending: THREE.AdditiveBlending,
-        depthWrite: false,
-        color: "#00ccff",
-      });
-    }, []);
-
-    const geometry = useMemo(() => {
-      const geo = new THREE.BufferGeometry();
-      geo.setAttribute("position", new THREE.BufferAttribute(positions, 3));
-      return geo;
-    }, [positions]);
-
-    useFrame(() => {
-      if (particlesRef.current) {
-        const pos = particlesRef.current.geometry.attributes.position;
-        const pullStrength = 1 - 0.02 * effectivePurifierSpeed;
-        for (let i = 0; i < particleCount; i++) {
-          const ix = i * 3;
-          const iy = ix + 1;
-          const iz = ix + 2;
-
-          pos.array[ix] *= pullStrength;
-          pos.array[iy] *= pullStrength;
-          pos.array[iz] *= pullStrength;
-
-          if (
-            Math.abs(pos.array[ix]) < 0.01 &&
-            Math.abs(pos.array[iy]) < 0.01 &&
-            Math.abs(pos.array[iz]) < 0.01
-          ) {
-            pos.array[ix] = (Math.random() - 0.5) * 3.0;
-            pos.array[iy] = Math.random() * 0.4;
-            pos.array[iz] = (Math.random() - 0.5) * 3.0;
-          }
-        }
-        pos.needsUpdate = true;
-      }
-    });
-
-    return effectivePurifierSpeed > 0 && (
-      <points
-        ref={particlesRef}
-        geometry={geometry}
-        material={material}
-        position={[0, -0.6, 0]}
-      />
-    );
-  };
 
   return (
     <>
@@ -433,8 +447,8 @@ const LevoitPurifierModel = ({
         scale={scale}
         position={position}
       />
-      {effectiveDiffuserSpeed > 0 && <CustomSmoke />}
-      {effectivePurifierSpeed > 0 && <SuctionParticles />}
+      {effectiveDiffuserSpeed > 0 && <CustomSmoke position={position} effectiveDiffuserSpeed={effectiveDiffuserSpeed} />}
+      {effectivePurifierSpeed > 0 && <SuctionParticles position={position} effectivePurifierSpeed={effectivePurifierSpeed} />}
       <BalloonLabel isPurifierOn={isPurifierOn} isDiffuserOn={isDiffuserOn} chartData={chartData} />
     </>
   );
