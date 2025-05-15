@@ -5,8 +5,8 @@
 **실내 공기질 모니터링과 맞춤형 향 분사를 자동화한 스마트홈 시스템**
 
 <p align="center">
-<img  alt="Image" src="https://github.com/user-attachments/assets/fe3de208-1b1a-465e-bcc7-768cfd7d93f5" />
-<img width="1268" alt="Image2" src="https://github.com/user-attachments/assets/0922156f-c6b7-4af1-9d13-c2f23a3c98e6" />
+<img  alt="Image" src="https://kookmin-sw.github.io/capstone-2025-28/docs/image1.png" />
+<img width="1268" alt="Image2" src="https://kookmin-sw.github.io/capstone-2025-28/docs/image2.png" />
 </p>
 
 - 디지털 트윈 기반 실시간 시각화
@@ -61,9 +61,9 @@
 - 프로젝트의 Gerber 파일을 통해 직접 PCB를 발주하고, 부품을 납땜하여 조립할 수 있습니다.
 
 <p align="center">
-<img width="1210" alt="Image3" src="https://github.com/user-attachments/assets/802c608b-7841-4e69-83cf-a06e0c6f8140" />
+<img width="1210" alt="Image3" src="https://kookmin-sw.github.io/capstone-2025-28/docs/image3.png" />
 
-<img width="880" alt="Image4" src="https://github.com/user-attachments/assets/f78874dd-8675-4ea6-a614-e3df8c0378e6" />
+<img width="880" alt="Image4" src="https://kookmin-sw.github.io/capstone-2025-28/docs/image4.png" />
 </p>
 
 ### 🔧 필요 부품 목록 (BOM)
@@ -96,7 +96,7 @@
    - GPIO 40핀 핀헤더로 직접 연결 가능
 
 <p align="center">
-<img width="656" alt="Image5" src="https://github.com/user-attachments/assets/442529ed-7ae9-4c54-8d3c-771754ae72d2" />
+<img width="656" alt="Image5" src="https://kookmin-sw.github.io/capstone-2025-28/docs/image5.png" />
 </p>
 
 ---
@@ -118,7 +118,7 @@
 ### 💻 서비스 아키텍처
 
 <p align="center">
-<img width="1123" alt="Image6" src="https://github.com/user-attachments/assets/6b64c85c-6636-4d8f-aebb-9f4e9a0c8be0" />
+<img width="1123" alt="Image6" src="https://kookmin-sw.github.io/capstone-2025-28/docs/image6.png" />
 </p>
 
 ### 📂 디렉토리 구조
