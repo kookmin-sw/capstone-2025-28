@@ -95,7 +95,7 @@ export const useSocketStore = create<SocketState>((set) => ({
   isSendingCommand: false,
   resetSensorData: () =>
     set(() => ({
-      air_quality_score: 0,
+      air_quality_score: 100,
       air_quality: 0,
       tvoc: 0,
       eco2: 0,

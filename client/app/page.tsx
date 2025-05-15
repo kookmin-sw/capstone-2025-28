@@ -1,13 +1,12 @@
 "use client";
 import React, { useEffect, useMemo, useRef } from "react";
-import { Canvas } from "@react-three/fiber";
+import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import { OrbitControls, useGLTF } from "@react-three/drei";
+import { OrbitControls as OrbitControlsImpl } from 'three-stdlib';
 import { AirQualityControlSection } from "@/sections/AirQualityControlSection";
 import { DigitalTwinStatusSection } from "@/sections/DigitalTwinStatusSection";
 import { GlobalLoadingOverlay } from "@/components/ui/GlobalLoadingOverlay";
-import Experience from "../Experience/Experience";
 import { useSocketStore } from "@/stores/socketStore";
-import { useFrame } from "@react-three/fiber";
 import * as THREE from "three";
 
 export default function Home() {
@@ -110,6 +109,9 @@ export default function Home() {
     return () => window.removeEventListener("resize", handleResize);
   }, []);
 
+  // OrbitControls ref for type safety and stability
+  const controlsRef = useRef<OrbitControlsImpl>(null!);
+
   return (
     <main
       className={`flex flex-col w-full ${isMobile ? "min-h-screen" : "h-screen overflow-hidden"} items-start justify-between p-4 md:p-8 lg:p-11 relative rounded-[40px] border-[10px] border-solid border-[#ffffff1a] ${isMobile ? "bg-black [background:linear-gradient(180deg,rgba(0,0,0,0)_0%,rgba(0,0,0,0.5)_90%),url('/img/macbook-pro-14-1.png')] bg-cover bg-[50%_50%]" : "bg-black"}`}
@@ -125,16 +127,105 @@ export default function Home() {
             filter: "brightness(0.6) blur(4px)",
           }}
         />
-        {!isMobile && currentDeviceKey !== "RPI-002" && (
-          <Canvas camera={{ position: [6, 5, 2], fov: 60 }}>
+        {!isMobile && (
+          <Canvas
+            camera={{
+              position: [6, 5, 2],
+              fov: 60,
+            }}
+          >
+            <CameraUpdater controlsRef={controlsRef} />
+            {process.env.NODE_ENV === "development" && (
+              <CameraLogger />
+            )}
             <ambientLight intensity={0.8} />
             <directionalLight position={[2, 3, 6]} />
-            <Model3D />
-            <LevoitPurifierModel />
-            <OrbitControls target={[0, -2, 0]} />
+            <Model3D
+              glbPath={
+                currentDeviceKey === "RPI-002"
+                  ? "/611.glb"
+                  : currentDeviceKey === "RPI-003"
+                  ? "/424.glb"
+                  : currentDeviceKey === "RPI-004"
+                  ? "/234.glb"
+                  : currentDeviceKey === "RPI-005"
+                  ? "/apartment.glb"
+                  : "/sample_room3.glb"
+              }
+              scale={
+                currentDeviceKey === "RPI-002"
+                  ? 1.5
+                  : currentDeviceKey === "RPI-003"
+                  ? 1.5
+                  : currentDeviceKey === "RPI-004"
+                  ? 1.5
+                  : currentDeviceKey === "RPI-005"
+                  ? 1.5
+                  : 1.5
+              }
+              heatmapPosition={
+                currentDeviceKey === "RPI-002"
+                  ? [-6.5, -2.5, 0]
+                  : currentDeviceKey === "RPI-003"
+                  ? [-5, -2.4, -0.6]
+                  : currentDeviceKey === "RPI-004"
+                  ? [3.8, -2.1, 0.5]
+                  : currentDeviceKey === "RPI-005"
+                  ? [0, -1.8, 0]
+                  : [0, -1.9, 0]
+              }
+              heatmapScale={
+                currentDeviceKey === "RPI-002"
+                  ? [3.5, 4.0]
+                  : currentDeviceKey === "RPI-003"
+                  ? [3.8, 4.5]
+                  : currentDeviceKey === "RPI-004"
+                  ? [4.0, 4.2]
+                  : currentDeviceKey === "RPI-005"
+                  ? [4.0, 4.2]
+                  : [3.8, 4.2]
+              }
+            />
+            <LevoitPurifierModel
+              position={
+                currentDeviceKey === "RPI-002"
+                  ? [-6.5, -1.5, 0]
+                  : currentDeviceKey === "RPI-003"
+                  ? [-5, -1.5, -0.6]
+                  : currentDeviceKey === "RPI-004"
+                  ? [3.8, -1.05, 0.5]
+                  : currentDeviceKey === "RPI-005"
+                  ? [0, -1.8, 0]
+                  : [0, -0.65, 0]
+              }
+              scale={
+                currentDeviceKey === "RPI-002"
+                  ? 0.006
+                  : currentDeviceKey === "RPI-003"
+                  ? 0.006
+                  : currentDeviceKey === "RPI-004"
+                  ? 0.006
+                  : currentDeviceKey === "RPI-005"
+                  ? 0.006
+                  : 0.006
+              }
+            />
+            <OrbitControls
+              ref={controlsRef}
+              target={
+                currentDeviceKey === "RPI-002"
+                  ? [0, -2, 0]
+                  : currentDeviceKey === "RPI-003"
+                  ? [0, -2, 0]
+                  : currentDeviceKey === "RPI-004"
+                  ? [0, -2, 0]
+                  : currentDeviceKey === "RPI-005"
+                  ? [0, -2, 0]
+                  : [0, -2, 0]
+              }
+            />
           </Canvas>
         )}
-        {!isMobile && currentDeviceKey === "RPI-002" && <Experience />}
       </div>
 
       <div className="relative z-10 w-full flex flex-col grow justify-between pointer-events-none">
@@ -162,7 +253,13 @@ export default function Home() {
 }
 
 // LevoitPurifierModel
-const LevoitPurifierModel = () => {
+const LevoitPurifierModel = ({
+  position = [0, -0.65, 0],
+  scale = 0.006,
+}: {
+  position?: [number, number, number],
+  scale?: number,
+} = {}) => {
   const diffuserSpeed = useSocketStore((state) => state.diffuserSpeed);
   const purifierSpeed = useSocketStore((state) => state.purifierSpeed);
   const isPurifierOn = useSocketStore((state) => state.isPurifierOn);
@@ -333,8 +430,8 @@ const LevoitPurifierModel = () => {
     <>
       <primitive
         object={gltf.scene}
-        scale={0.006}
-        position={[0, -0.65, 0]}
+        scale={scale}
+        position={position}
       />
       {effectiveDiffuserSpeed > 0 && <CustomSmoke />}
       {effectivePurifierSpeed > 0 && <SuctionParticles />}
@@ -344,16 +441,29 @@ const LevoitPurifierModel = () => {
 };
 
 // Model3D
-const Model3D = () => {
-  const gltf = useGLTF("/sample_room3.glb", true);
+const Model3D = ({
+  glbPath = "/sample_room3.glb",
+  scale = 1.5,
+  heatmapPosition = [0, -1.9, 0],
+  heatmapScale = [3.8, 4.2],
+}: {
+  glbPath?: string,
+  scale?: number,
+  heatmapPosition?: [number, number, number],
+  heatmapScale?: [number, number],
+} = {}) => {
+  const gltf = useGLTF(glbPath, true);
 
   // HeatMapOverlay component
   const HeatMapOverlay = () => {
     const air_quality_score = useSocketStore((state) => state.air_quality_score);
+    const heatmapWidth = heatmapScale[0];
+    const heatmapHeight = heatmapScale[1];
+
     const geometry = useMemo(() => {
-      const geo = new THREE.PlaneGeometry(3.8, 4.2, 60, 60);
+      const geo = new THREE.PlaneGeometry(heatmapWidth, heatmapHeight, 60, 60);
       return geo;
-    }, []);
+    }, [heatmapWidth, heatmapHeight]);
 
     const prevScoreRef = useRef(air_quality_score);
 
@@ -405,7 +515,7 @@ const Model3D = () => {
         geometry={geometry}
         material={material}
         rotation={[-Math.PI / 2, 0, 0]}
-        position={[0, -1.9, 0]}
+        position={heatmapPosition}
         renderOrder={1}
       />
     );
@@ -413,7 +523,7 @@ const Model3D = () => {
 
   return (
     <>
-      <primitive object={gltf.scene} scale={1.5} />
+      <primitive object={gltf.scene} scale={scale} />
       <HeatMapOverlay />
     </>
   );
@@ -476,6 +586,8 @@ const BalloonLabel = ({ isPurifierOn, isDiffuserOn, chartData }: { isPurifierOn:
   const textureRef = useRef<THREE.CanvasTexture | null>(null);
   const prevEstimatedRef = useRef<number | null>(null);
   const lastUpdateTimeRef = useRef<number>(Date.now());
+  // 1. Import currentDeviceKey from useSocketStore
+  const currentDeviceKey = useSocketStore((state) => state.currentDeviceKey);
 
   useEffect(() => {
     const drawBalloon = () => {
@@ -518,12 +630,22 @@ const BalloonLabel = ({ isPurifierOn, isDiffuserOn, chartData }: { isPurifierOn:
     return () => clearInterval(interval);
   }, [isPurifierOn, isDiffuserOn, chartData]);
 
+  // 2. Dynamic positioning based on currentDeviceKey
   useEffect(() => {
     if (spriteRef.current) {
-      spriteRef.current.position.set(0, 2, 0);
+      const positionMap: Record<string, [number, number, number]> = {
+        "RPI-002": [-6.5, 0.8, 0],
+        "RPI-003": [-5, 0.9, -0.6],
+        "RPI-004": [3.8, 1.2, 0.5],
+        "RPI-005": [0, 0.8, 0],
+      };
+      const defaultPosition: [number, number, number] = [0, 2, 0];
+      const position = positionMap[currentDeviceKey] || defaultPosition;
+
+      spriteRef.current.position.set(...position);
       spriteRef.current.scale.set(2, 1, 1);
     }
-  }, []);
+  }, [currentDeviceKey]);
 
   return (
     <sprite
@@ -540,3 +662,50 @@ const BalloonLabel = ({ isPurifierOn, isDiffuserOn, chartData }: { isPurifierOn:
   "/sample_room3.glb",
   "/air_purifier_v1.glb",
 ].forEach(path => useGLTF.preload(path));
+
+// CameraLogger component for development: logs camera position each frame
+const CameraLogger = () => {
+  const camera = useThree((state) => state.camera);
+  useFrame(() => {
+    console.log("Camera position:", camera.position.toArray());
+  });
+  return null;
+};
+
+// CameraUpdater: updates camera position and OrbitControls target when currentDeviceKey changes
+const CameraUpdater = ({ controlsRef }: { controlsRef: React.RefObject<OrbitControlsImpl> }) => {
+  const { camera } = useThree();
+  const currentDeviceKey = useSocketStore((state) => state.currentDeviceKey);
+
+  useEffect(() => {
+    const newPosition: [number, number, number] =
+      currentDeviceKey === "RPI-002"
+        ? [11.335400342644117, 13.049449276522775, 0.04892313600425897]
+        : currentDeviceKey === "RPI-003"
+        ? [13, 11.2, 5.46]
+        : currentDeviceKey === "RPI-004"
+        ? [1.5144312043461268, 1.402539935053115, 10.896095068343802]
+        : currentDeviceKey === "RPI-005"
+        ? [0.0032976994664020444, 14.162725902043054, -6.327190595544346]
+        : [6, 5, 2];
+
+    const newTarget: [number, number, number] =
+      currentDeviceKey === "RPI-002"
+        ? [0 ,-2 ,0]
+        : currentDeviceKey === "RPI-003"
+        ? [0, -2, 0]
+        : currentDeviceKey === "RPI-004"
+        ? [0, -2, 0]
+        : currentDeviceKey === "RPI-005"
+        ? [0, -2, 0]
+        : [0, -2, 0];
+
+    camera.position.set(...newPosition);
+    if (controlsRef.current) {
+      controlsRef.current.target.set(...newTarget);
+      controlsRef.current.update();
+    }
+  }, [currentDeviceKey, camera, controlsRef]);
+
+  return null;
+};
