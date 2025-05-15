@@ -68,7 +68,7 @@ export const DigitalTwinStatusSection = () => {
         {/* Sidebar Menu Button */}
         <Sheet>
           <SheetTrigger asChild>
-            <Button variant="ghost" size="icon" className="text-neutral-100">
+            <Button variant="ghost" size="icon" className="text-neutral-100" disabled={true}>
               <MenuIcon className="h-6 w-6" />
             </Button>
           </SheetTrigger>
@@ -162,9 +162,9 @@ export const DigitalTwinStatusSection = () => {
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent className="w-48 bg-gray-900 text-white p-2 rounded-lg shadow-md">
-              <DropdownMenuItem className="text-sm">@USER-ADMIN</DropdownMenuItem>
-              <DropdownMenuItem className="text-sm">환경설정</DropdownMenuItem>
-              <DropdownMenuItem className="text-sm text-red-400">로그아웃</DropdownMenuItem>
+              <DropdownMenuItem className="text-sm">@KMU-SW</DropdownMenuItem>
+              <DropdownMenuItem className="text-sm" disabled={true}>환경설정</DropdownMenuItem>
+              <DropdownMenuItem className="text-sm text-red-400" disabled={true}>로그아웃</DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
         </div>

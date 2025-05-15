@@ -634,12 +634,12 @@ const BalloonLabel = ({ isPurifierOn, isDiffuserOn, chartData }: { isPurifierOn:
   useEffect(() => {
     if (spriteRef.current) {
       const positionMap: Record<string, [number, number, number]> = {
-        "RPI-002": [-6.5, 0.8, 0],
+        "RPI-002": [-6.5, 0.5, 0],
         "RPI-003": [-5, 0.9, -0.6],
         "RPI-004": [3.8, 1.2, 0.5],
         "RPI-005": [0, 0.8, 0],
       };
-      const defaultPosition: [number, number, number] = [0, 2, 0];
+      const defaultPosition: [number, number, number] = [0, 1.5, 0];
       const position = positionMap[currentDeviceKey] || defaultPosition;
 
       spriteRef.current.position.set(...position);

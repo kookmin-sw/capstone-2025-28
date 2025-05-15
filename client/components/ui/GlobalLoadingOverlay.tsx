@@ -8,7 +8,7 @@ export const GlobalLoadingOverlay = () => {
   if (!isSendingCommand) return null;
 
   return (
-    <div className="fixed inset-0 z-[9999] bg-black bg-opacity-50 backdrop-blur-sm flex items-center justify-center">
+    <div className="fixed inset-0 z-[9999] backdrop-blur-xs flex items-center justify-center">
       <Loader2 className="animate-spin text-white w-12 h-12" />
     </div>
   );

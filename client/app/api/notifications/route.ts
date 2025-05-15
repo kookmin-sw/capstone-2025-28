@@ -1,8 +1,8 @@
 import { NextResponse } from "next/server";
 
 let notifications = [
-  { id: 1, message: "테스트 알림 1", is_read: false },
-  { id: 2, message: "테스트 알림 2", is_read: false },
+  { id: 1, message: "횐영합니다", is_read: false },
+  { id: 2, message: "대기질 변동시 알려드리겠습니다.", is_read: false },
 ];
 
 // 📌 **알림 목록 조회 (GET)**
