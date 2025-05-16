@@ -1,4 +1,4 @@
-# 라즈베리 Air
+<img width="300" alt="Image" src="docs/image.png" />
 
 ## 1. 프로젝트 개요
 
@@ -162,7 +162,15 @@ npm run start
 
 ---
 
-## 9. 참고자료 및 문서
+## 9. 외부 학술 성과
+
+본 프로젝트는 2025년 여름 [2025년도 하계종합학술발표회](https://conference.ieek.or.kr/)에 학부 연구논문으로 출품되었습니다.
+
+![학술대회 포스터 이미지](docs/image0.png)
+
+---
+
+## 10. 참고자료 및 문서
 
 - [최종 발표자료 및 보고서](https://drive.google.com)
 - [디지털 트윈 시연 영상](https://youtube.com)
