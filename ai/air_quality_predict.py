@@ -133,12 +133,12 @@ def calculate_air_quality_score(record):
     mq135 = record["mq135"]
     smell = record["smell_level"]
 
-    mq4_penalty_score = min(100, max(0, ((mq4 - 20000) / 65535) * 100))
-    mq7_penalty_score = min(100, max(0, (mq7 - 10000) / 65535 * 100))
-    mq135_penalty_score = min(100, max(0, (mq135 / 65535) * 100))
-    pm25_penalty_score = min(100, max(0, pm25 - 30))
-    tvoc_penalty_score = min(100, tvoc / 3)
-    eco2_penalty_score = min(100, max(0, ((eco2 - 400) / 15)))
+    mq4_penalty_score = min(100, max(0, ((mq4 * 3) / 65535) * 100))
+    mq7_penalty_score = min(100, max(0, (mq7 - 30000) / 65535 * 100))
+    mq135_penalty_score = min(100, max(0, ((mq135 * 3) / 65535) * 100))
+    pm25_penalty_score = min(100, max(0, pm25 - 15))
+    tvoc_penalty_score = min(100, tvoc / 2)
+    eco2_penalty_score = min(100, max(0, ((eco2 - 400) / 10)))
     smell_penalty_score = min(100, smell * 30)
 
     air_quality_score = base_score - (
@@ -162,16 +162,16 @@ def train_regression_model():
     
     X_columns = ["tvoc", "eco2", "pm2.5", "mq4", "mq7", "mq135", "air_quality", "smell_level"]
     future_df = df.shift(-2)
-    y_columns = ["tvoc", "eco2", "pm2.5", "air_quality"]
+    y_columns = ["eco2", "pm2.5", "air_quality"]
 
     X_list = []
-    for i in range(5, len(df)-2):
+    for i in range(14, len(df)-2):
         merged = []
-        for j in range(5, -1, -1):
+        for j in range(14, -1, -1):
             merged += df.iloc[i-j][X_columns].tolist()
         X_list.append(merged)
 
-    y = future_df[y_columns].iloc[5:-2].values
+    y = future_df[y_columns].iloc[14:-2].values
 
     X = np.array(X_list)
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
@@ -180,8 +180,8 @@ def train_regression_model():
     X_train = X_scaler.fit_transform(X_train)
     X_test = X_scaler.transform(X_test)
 
-    X_train = X_train.reshape((X_train.shape[0], 6, -1))
-    X_test = X_test.reshape((X_test.shape[0], 6, -1))
+    X_train = X_train.reshape((X_train.shape[0], 15, -1))
+    X_test = X_test.reshape((X_test.shape[0], 15, -1))
 
     y_scaler = StandardScaler()
     y_train = y_scaler.fit_transform(y_train)
@@ -225,20 +225,14 @@ def analyze_trend():
 
     messages = []
 
-    eco2_now, eco2_prev, eco2_before = latest[1], prev[1], before_prev[1]
-    tvoc_now, tvoc_prev, tvoc_before = latest[0], prev[0], before_prev[0]
-    air_quality_now, air_quality_prev, air_quality_before = latest[3], prev[3], before_prev[3]
+    eco2_now, eco2_prev, eco2_before = latest[0], prev[0], before_prev[0]
+    pm25_now, pm25_prev, pm25_before = latest[1], prev[1], before_prev[1]
+    air_quality_now, air_quality_prev, air_quality_before = latest[2], prev[2], before_prev[2]
 
     # eco2 증가/감소
     if eco2_now > eco2_prev > eco2_before:
         messages.append("⬆️ 이산화탄소 농도가 계속 증가하고 있어요. 환기가 필요합니다.")
 
-    # tvoc 급격한 상승/하락
-    if tvoc_prev != 0 and tvoc_before != 0:
-        tvoc_increase_rate = (tvoc_now - tvoc_before) / tvoc_before
-
-        if tvoc_increase_rate >= 0.3:
-            messages.append(f"⚠️ TVOC 농도가 30% 이상 급증했습니다! 현재 수치: {tvoc_now:.2f}")
 
     # 공기질 점수 추세
     if air_quality_now < air_quality_prev < air_quality_before:
@@ -263,10 +257,10 @@ def predict_air_quality():
     X_scaler, y_scaler = joblib.load(AIR_QUALITY_SCALER_FILE)
 
     while True:
-        if len(sensor_data_list) >= 6:
+        if len(sensor_data_list) >= 15:
             merged_input = []
-            for i in range(6):
-                latest_data = sensor_data_list[-(6-i)]
+            for i in range(15):
+                latest_data = sensor_data_list[-(15-i)]
                 merged_input += [
                     latest_data.get("tvoc", 0),
                     latest_data.get("eco2", 0),
@@ -280,17 +274,16 @@ def predict_air_quality():
             
             input_data = np.array(merged_input).reshape(1, -1)  # (1, 특성수)
             reg_input = X_scaler.transform(input_data)
-            reg_input = reg_input.reshape(1, 6, -1)  # (샘플, 시퀀스 길이 6, 특성수)
+            reg_input = reg_input.reshape(1, 15, -1)
 
             air_quality_prediction = reg_model.predict(reg_input)[0]
             air_quality_prediction = y_scaler.inverse_transform([air_quality_prediction])[0]
 
-        predicted_tvoc = air_quality_prediction[0]
-        predicted_eco2 = air_quality_prediction[1]
-        predicted_pm25 = air_quality_prediction[2]
-        predicted_air_quality = air_quality_prediction[3]
+            predicted_eco2 = air_quality_prediction[0]
+            predicted_pm25 = air_quality_prediction[1]
+            predicted_air_quality = air_quality_prediction[2]
     
-        print(f"✅ 예측된 TVOC: {predicted_tvoc:.2f}, eCO2: {predicted_eco2:.2f}, PM2.5: {predicted_pm25:.2f}, air_quality: {predicted_air_quality:.2f}")
+        print(f"✅ 예측된 eCO2: {predicted_eco2:.2f}, PM2.5: {predicted_pm25:.2f}, air_quality: {predicted_air_quality:.2f}")
         
         current_smell = merged_input[-1]
         set_fan_pump_by_air_quality(predicted_air_quality, current_smell)
@@ -298,7 +291,6 @@ def predict_air_quality():
         # 예측값/실제값 저장
         prediction_history.append(air_quality_prediction)
         real_value_history.append([
-            sensor_data_list[-2].get("tvoc", 0),
             sensor_data_list[-2].get("eco2", 0),
             sensor_data_list[-2].get("pm2.5", 0),
             sensor_data_list[-2].get("air_quality", 0),
