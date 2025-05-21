@@ -58,7 +58,7 @@ def collect_data(raw, shared_prediction):
     global sensor_data_list
     if os.path.exists(SMELL_MODEL_FILE):
         class_model, class_scaler = joblib.load(SMELL_MODEL_FILE)
-        smell_labels = ["✅ 좋음", "⚠️ 보통", "🚨 나쁨"]
+        smell_labels = ["✅ 약함", "⚠️ 보통", "🚨 강함"]
     else:
         class_model = None
         print("⚠️ 냄새 분류 모델이 없어 냄새 예측을 건너뜁니다")

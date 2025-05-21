@@ -63,7 +63,7 @@ def collect_data(interval=3):
 
     if os.path.exists(SMELL_MODEL_FILE):
         class_model, class_scaler = joblib.load(SMELL_MODEL_FILE)
-        smell_labels = ["✅ 좋음", "⚠️ 보통", "🚨 나쁨"]
+        smell_labels = ["✅ 약함", "⚠️ 보통", "🚨 강함"]
         print("✅ 냄새 분류 모델 로드 완료")
     else:
         class_model = None
