@@ -22,9 +22,7 @@
 
 
 <p align="center">
-
-[![Video Label](http://img.youtube.com/vi/vItIlZ5TVPU/0.jpg)](https://youtu.be/vItIlZ5TVPU)
-
+<iframe width="936" height="527" src="https://www.youtube.com/embed/vItIlZ5TVPU" title="capstone-2025-28 소개 및 시연영상" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe>
 </p>
 
 ---
